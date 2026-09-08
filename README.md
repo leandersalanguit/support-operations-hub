@@ -15,10 +15,12 @@
 
 ---
 
-> [!NOTE]
+> [NOTE]
 > **A Quick Heads-Up**
 >
 > Just a heads-up: this repository came from a private repository with proprietary information. I stripped all vendor references as much as possible—cleaning up company branding, client identities, internal drive links, and private URLs.
+>
+> To make the public demo easy and fun to explore without requiring a Supabase account or private credentials, the [demo preview](https://leandersalanguit.github.io/support-operations-hub/) runs entirely on mock data themed with **The Office / Dunder Mifflin** references (featuring personas like Jim Halpert, Dwight Schrute, and Michael Scott, alongside fictional Scranton branch products, clients, and interaction logs).
 
 
 ---
