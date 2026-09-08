@@ -1,0 +1,28 @@
+<!--
+  @fileoverview HTML entry point for the Vite-powered React SPA.
+  Loads essential external resources like Google Fonts and sets up the root DOM node
+  where the React application will be mounted.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/app-logo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Support Operations Hub</title>
+    <meta name="description" content="Support Operations Hub • Interaction & Shift Tracking System" />
+    <!-- Preconnect to Google Fonts for performance optimization -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Load custom fonts: Plus Jakarta Sans for UI and JetBrains Mono for code/data (non-render-blocking) -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"></noscript>
+  </head>
+  <!-- Initialize base styling for the body -->
+  <body class="bg-slate-100 text-slate-800 antialiased min-h-screen">
+    <!-- Root element where the React application will be rendered -->
+    <div id="root"></div>
+    <!-- Load the application's entry script -->
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

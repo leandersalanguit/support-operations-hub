@@ -1,0 +1,25 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="faviconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#2dc3e8" />
+      <stop offset="50%" stopColor="#00addc" />
+      <stop offset="100%" stopColor="#1c9ad6" />
+    </linearGradient>
+  </defs>
+  <polygon
+    points="50,4 90,25 90,75 50,96 10,75 10,25"
+    fill="url(#faviconGrad)"
+    stroke="#008bb5"
+    stroke-width="2"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M32 50 C32 38, 68 38, 68 50 V60 C68 64, 64 68, 60 68 H54 M68 52 H64 C62 52, 60 54, 60 56 V62 C60 64, 62 66, 64 66 H68 Z M32 52 H36 C38 52, 40 54, 40 56 V62 C40 64, 38 66, 36 66 H32 Z"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="50" cy="68" r="4.5" fill="#ffffff" />
+</svg>
