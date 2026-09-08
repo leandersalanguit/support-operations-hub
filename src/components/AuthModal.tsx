@@ -20,7 +20,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
-import { supabase } from '../infrastructure/supabase/client';
+import { supabase, isSupabaseConfigured } from '../infrastructure/supabase/client';
 import { formatAgentDisplayName, normalizeAuthEmail } from '../domain';
 import { checkMustChangePassword } from '../application/useAuthWorkflow';
 import { checkPasswordBreach } from '../utils/passwordSecurity';
@@ -379,7 +379,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
           )}
 
-          {onEnterDemo && !isPasswordChangeRequired && (
+          {onEnterDemo && !isPasswordChangeRequired && !isSupabaseConfigured && (
             <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-slate-800">
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">

@@ -53,6 +53,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     currentAgentFullName,
     signOut,
     isDemoMode,
+    isDemoAvailable,
     activePersonaId,
     enterDemoMode,
     switchDemoPersona,
@@ -194,7 +195,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
         onAuthSuccess={() => {
           setIsPasswordChangeRequired(false);
         }}
-        onEnterDemo={enterDemoMode}
+        onEnterDemo={isDemoAvailable ? enterDemoMode : undefined}
       />
     );
   }
