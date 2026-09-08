@@ -178,14 +178,9 @@ export function handleFormEnterKeyNavigation(
     }
 
     // If it's a custom dropdown trigger (aria-haspopup="listbox"):
-    // If the dropdown is open (aria-expanded="true"), let the dropdown select its item
+    // Let the dropdown component handle Enter (to toggle/open or select).
+    // Do not advance focus to the next form field.
     if (target.getAttribute('aria-haspopup') === 'listbox') {
-      if (target.getAttribute('aria-expanded') === 'true') {
-        return;
-      }
-      // If closed, advance focus to the next form field
-      e.preventDefault();
-      focusNextFormField(target, e.currentTarget);
       return;
     }
 

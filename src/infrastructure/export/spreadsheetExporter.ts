@@ -6,6 +6,7 @@
 
 import { SupportInteraction } from '../../domain/interaction/types';
 import { toSpreadsheetLabel } from '../../domain/interaction/license';
+import { SupportTier } from '../supabase/configRepo';
 import { getAgentFirstName, formatAgentDisplayName } from '../../domain/identity/policies';
 import { getHelpdeskName } from '../../utils/helpdesk';
 
@@ -23,19 +24,19 @@ export function sanitizeSpreadsheetCell(value: string | undefined | null): strin
 }
 
 /**
- * Derives a flat row representation for export.
+ * Formats an Interaction record into a key-value record matching the spreadsheet column schema.
  */
-export function formatInteractionRow(item: SupportInteraction): Record<string, string> {
-  const timeStr = item.time || (item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour12: false }) : '');
-
+export function formatInteractionRow(
+  item: SupportInteraction,
+  supportTiers?: SupportTier[]
+): Record<string, string> {
+  const timeStr = item.time ? item.time.slice(0, 5) : '00:00';
   let channelDetails = item.channelDetails || '';
   if (item.channel?.toLowerCase() === 'chat') {
     channelDetails = getHelpdeskName();
   }
-  if (channelDetails.trim().startsWith('+')) {
-    channelDetails = `'${channelDetails.trim()}`;
-  }
 
+  // Format date to MM/DD/YYYY
   let formattedDate = item.date;
   if (formattedDate && formattedDate.includes('-')) {
     const parts = formattedDate.split('-');
@@ -44,7 +45,7 @@ export function formatInteractionRow(item: SupportInteraction): Record<string, s
     }
   }
 
-  const licenseLabel = toSpreadsheetLabel(item.license || 'support_active');
+  const licenseLabel = toSpreadsheetLabel(item.license || 'support_active', supportTiers);
 
   return {
     'Date & Day': `${formattedDate} (${item.dayOfWeek})`,
@@ -77,7 +78,10 @@ export function formatDateForClipboard(dateString: string): string {
  * Formats an Interaction record into a tab-delimited string formatted for Excel pasting.
  * Columns: Date, Day, Agent, Client, Channel, Details, Product, Case, Notes, Status, License Valid, Event Call?, First time?
  */
-export function formatInteractionForExcelClipboard(item: SupportInteraction): string {
+export function formatInteractionForExcelClipboard(
+  item: SupportInteraction,
+  supportTiers?: SupportTier[]
+): string {
   const formattedDate = formatDateForClipboard(item.date);
   const day = item.dayOfWeek || '';
   const agent = getAgentFirstName(item.agent);
@@ -91,7 +95,7 @@ export function formatInteractionForExcelClipboard(item: SupportInteraction): st
   const classification = item.caseClassification || '';
   const notes = (item.additionalNotes || '').replace(/[\r\n\t]+/g, ' ').trim();
   const status = item.status || '';
-  const licenseValid = toSpreadsheetLabel(item.license || 'support_active');
+  const licenseValid = toSpreadsheetLabel(item.license || 'support_active', supportTiers);
   const eventCall = item.inEvent ? 'Yes' : 'No';
   const firstTime = item.firstTimeUser ? 'Yes' : 'No';
 
@@ -112,8 +116,12 @@ export function formatInteractionForExcelClipboard(item: SupportInteraction): st
   ].join('\t');
 }
 
-export function exportToCSV(interactions: SupportInteraction[], filename = 'shift_interactions.csv') {
-  const rows = interactions.map(formatInteractionRow);
+export function exportToCSV(
+  interactions: SupportInteraction[],
+  filename = 'shift_interactions.csv',
+  supportTiers?: SupportTier[]
+) {
+  const rows = interactions.map((item) => formatInteractionRow(item, supportTiers));
 
   if (rows.length === 0) {
     alert('No interactions to export.');
@@ -147,8 +155,12 @@ export function exportToCSV(interactions: SupportInteraction[], filename = 'shif
   URL.revokeObjectURL(url);
 }
 
-export async function exportToExcel(interactions: SupportInteraction[], filename = 'shift_interactions.xlsx') {
-  const rows = interactions.map(formatInteractionRow);
+export async function exportToExcel(
+  interactions: SupportInteraction[],
+  filename = 'shift_interactions.xlsx',
+  supportTiers?: SupportTier[]
+) {
+  const rows = interactions.map((item) => formatInteractionRow(item, supportTiers));
 
   if (rows.length === 0) {
     alert('No interactions to export.');

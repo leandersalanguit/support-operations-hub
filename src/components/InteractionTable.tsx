@@ -37,7 +37,7 @@ import { scrollToTopSmooth, scrollToBottomSmooth } from '../utils/scroll';
 import { filterAndSortInteractions } from '../utils/interactionFilters';
 import { parseChannelDetails } from '../utils/channelDetails';
 import { formatInteractionForExcelClipboard } from '../infrastructure/export/spreadsheetExporter';
-import { formatAgentDisplayName, canModifyInteractionPolicy, UserRole } from '../domain';
+import { formatAgentDisplayName, canModifyInteractionPolicy, UserRole, isLicenseActive } from '../domain';
 import { usePagination, PAGE_SIZE_OPTIONS } from '../utils/pagination';
 
 /**
@@ -120,7 +120,7 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
   
   // State for filtering by product
   const [selectedProduct, setSelectedProduct] = useState<string>('ALL');
-  const { products: catalogProducts } = useTaxonomies();
+  const { products: catalogProducts, supportTiers } = useTaxonomies();
   const availableProducts = useMemo(() => {
     const set = new Set<string>(catalogProducts);
     interactions.forEach((i) => {
@@ -169,7 +169,7 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
    * @param {Interaction} item - The interaction record to copy.
    */
   const handleCopyRow = (item: Interaction) => {
-    copyRow(formatInteractionForExcelClipboard(item), item.id);
+    copyRow(formatInteractionForExcelClipboard(item, supportTiers), item.id);
   };
 
   /**
@@ -689,39 +689,51 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
                     <td className="py-2.5 px-2 w-20 sm:w-24 align-middle text-center">
                       <div className="flex flex-col items-center justify-center gap-1 select-none">
                         {/* Support License Indicator */}
-                        <span
-                          title={
-                            item.license === 'support_active'
-                              ? 'Support License: Valid'
-                              : item.license === 'renewal_sent'
-                              ? 'Support License: Inactive (Renewal Sent)'
-                              : 'Support License: Inactive (Support Inactive)'
-                          }
-                          className={`w-full max-w-[70px] inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-transparent ${
-                            item.license === 'support_active'
-                              ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/40 font-semibold'
-                              : item.license === 'renewal_sent'
-                              ? 'text-purple-700 dark:text-purple-300 bg-purple-50/90 dark:bg-purple-950/40 font-semibold'
-                              : 'text-slate-400 dark:text-slate-500 bg-slate-50/90 dark:bg-slate-800/40'
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                              item.license === 'support_active'
-                                ? 'bg-emerald-500'
-                                : item.license === 'renewal_sent'
-                                ? 'bg-purple-500'
-                                : 'bg-slate-300 dark:bg-slate-600'
-                            }`}
-                          />
-                          <span>
-                            {item.license === 'support_active'
-                              ? 'License'
-                              : item.license === 'renewal_sent'
-                              ? 'Renewal'
-                              : 'Inactive'}
-                          </span>
-                        </span>
+                        {(() => {
+                          const isAct = isLicenseActive(item.license);
+                          const matchedTier = supportTiers?.find((t) => t.code === item.license);
+                          const isRen = !isAct && (
+                            item.license === 'renewal_sent' ||
+                            (item.license || '').toLowerCase().includes('renewal') ||
+                            (item.license || '').toLowerCase().includes('link')
+                          );
+                          const titleText = isAct
+                            ? `Support License: Valid${matchedTier ? ` (${matchedTier.label})` : ''}`
+                            : `Support License: Inactive (${matchedTier?.label || (isRen ? 'Renewal Sent' : 'Support Inactive')})`;
+                          const badgeText = isAct
+                            ? 'License'
+                            : matchedTier
+                            ? matchedTier.label
+                            : isRen
+                            ? 'Renewal'
+                            : 'Inactive';
+
+                          return (
+                            <span
+                              title={titleText}
+                              className={`w-full max-w-[70px] inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-transparent ${
+                                isAct
+                                  ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/40 font-semibold'
+                                  : isRen
+                                  ? 'text-purple-700 dark:text-purple-300 bg-purple-50/90 dark:bg-purple-950/40 font-semibold'
+                                  : 'text-slate-400 dark:text-slate-500 bg-slate-50/90 dark:bg-slate-800/40'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  isAct
+                                    ? 'bg-emerald-500'
+                                    : isRen
+                                    ? 'bg-purple-500'
+                                    : 'bg-slate-300 dark:bg-slate-600'
+                                }`}
+                              />
+                              <span className="truncate">
+                                {badgeText}
+                              </span>
+                            </span>
+                          );
+                        })()}
 
                         {/* In Event Indicator */}
                         <span

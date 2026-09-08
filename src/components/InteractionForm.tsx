@@ -161,6 +161,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
     watch,
     reset,
     getValues,
+    clearErrors,
     formState: { errors, isSubmitted },
   } = useForm<InteractionFormInputs>({
     defaultValues: getDefaultValues(agentName, products[0] || '', classifications[0] || ''),
@@ -177,6 +178,8 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
 
   // Track whether the user has manually changed the product
   const userManuallySelectedProductRef = useRef<boolean>(false);
+  // Suppress immediate empty phone error when user explicitly starts adding/changing a number
+  const suppressPhoneEmptyErrorRef = useRef<boolean>(false);
 
   // Automatically select the default product (item 1 in the database or matched client's product)
   // and classification once fetched from the database
@@ -422,6 +425,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
+      suppressPhoneEmptyErrorRef.current = false;
       handleSubmit(onFormSubmit)();
     }
   };
@@ -432,6 +436,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
    */
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
     handleFormEnterKeyNavigation(e, () => {
+      suppressPhoneEmptyErrorRef.current = false;
       handleSubmit(onFormSubmit)();
     });
   };
@@ -519,7 +524,14 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onFormSubmit)} onKeyDown={handleFormKeyDown} className="p-6">
+      <form
+        onSubmit={(e) => {
+          suppressPhoneEmptyErrorRef.current = false;
+          handleSubmit(onFormSubmit)(e);
+        }}
+        onKeyDown={handleFormKeyDown}
+        className="p-6"
+      >
         {viewMode === 'vertical' ? (
           /* ========================================================================= */
           /* VERTICAL VIEW: Sequential, spacious vertical layout for easy entry        */
@@ -713,6 +725,9 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                     rules={{
                       validate: (val) => {
                         if (channel === 'Call') {
+                          if (suppressPhoneEmptyErrorRef.current && (!val || !val.trim())) {
+                            return true;
+                          }
                           const res = validatePhoneNumber(val);
                           if (!res.isValid) return res.error;
                         }
@@ -722,7 +737,16 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                     render={({ field }) => (
                       <PhoneNumberField
                         value={field.value}
-                        onChange={(val) => field.onChange(val)}
+                        onChange={(val) => {
+                          if (val) {
+                            suppressPhoneEmptyErrorRef.current = false;
+                          }
+                          field.onChange(val);
+                        }}
+                        onStartNewNumber={() => {
+                          suppressPhoneEmptyErrorRef.current = true;
+                          clearErrors('phoneDetail');
+                        }}
                         matchedClient={matchedClient as any}
                         clientPhoneNumbers={clientPhoneNumbers}
                         error={errors.phoneDetail?.message}
@@ -1197,6 +1221,9 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                     rules={{
                       validate: (val) => {
                         if (channel === 'Call') {
+                          if (suppressPhoneEmptyErrorRef.current && (!val || !val.trim())) {
+                            return true;
+                          }
                           const res = validatePhoneNumber(val);
                           if (!res.isValid) return res.error;
                         }
@@ -1206,7 +1233,16 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                     render={({ field }) => (
                       <PhoneNumberField
                         value={field.value}
-                        onChange={(val) => field.onChange(val)}
+                        onChange={(val) => {
+                          if (val) {
+                            suppressPhoneEmptyErrorRef.current = false;
+                          }
+                          field.onChange(val);
+                        }}
+                        onStartNewNumber={() => {
+                          suppressPhoneEmptyErrorRef.current = true;
+                          clearErrors('phoneDetail');
+                        }}
                         matchedClient={matchedClient as any}
                         clientPhoneNumbers={clientPhoneNumbers}
                         error={errors.phoneDetail?.message}

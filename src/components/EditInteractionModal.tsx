@@ -451,6 +451,9 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
                     setChannelDetails(val);
                     if (errors.channelDetails) setErrors((prev) => ({ ...prev, channelDetails: undefined }));
                   }}
+                  onStartNewNumber={() => {
+                    if (errors.channelDetails) setErrors((prev) => ({ ...prev, channelDetails: undefined }));
+                  }}
                   matchedClient={matchedClient as any}
                   clientPhoneNumbers={clientPhoneNumbers}
                   error={errors.channelDetails}

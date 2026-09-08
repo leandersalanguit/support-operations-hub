@@ -47,10 +47,7 @@ export interface DbClient {
  * Maps a database interaction row to the domain SupportInteraction entity.
  */
 export function mapDbToInteraction(db: DbInteraction): SupportInteraction {
-  const license: SupportLicense =
-    db.license === 'renewal_sent' || db.license === 'support_inactive'
-      ? db.license
-      : 'support_active';
+  const license: SupportLicense = db.license || 'support_active';
 
   return {
     id: db.id,
