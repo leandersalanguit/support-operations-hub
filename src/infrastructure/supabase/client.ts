@@ -15,6 +15,11 @@ export const isSupabaseConfigured = Boolean(
     !rawKey.includes('your-anon-key')
 );
 
+/**
+ * Semantic alias indicating whether a valid user database is configured and detected.
+ */
+export const isUserDatabaseDetected = isSupabaseConfigured;
+
 // Fallback to placeholder endpoint if unconfigured so static/demo deployments never crash at startup
 const fallbackUrl = 'https://placeholder.supabase.co';
 const fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder';

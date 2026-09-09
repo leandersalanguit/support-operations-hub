@@ -142,7 +142,7 @@ export const ProductSelector: React.FC<ProductSelectorProps> = React.memo(({
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === ' ') {
         e.preventDefault();
         setIsOpen(true);
-      } else if (e.key === 'Enter' && !disabled && !value) {
+      } else if (e.key === 'Enter' && !disabled) {
         e.preventDefault();
         setIsOpen(true);
       }

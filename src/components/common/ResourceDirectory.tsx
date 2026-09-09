@@ -6,9 +6,12 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowLeft, Filter, X } from 'lucide-react';
+import { Search, ArrowLeft, Filter, X, LayoutGrid, List, ExternalLink, Copy, Check } from 'lucide-react';
 import { BaseResourceItem, calculateCategoryCounts, filterResources, extractUniqueCategories } from '../../data/resourceUtils';
 import { useClipboardCopy } from '../../utils/clipboard';
+import { ExpandableDescription } from './ExpandableDescription';
+
+export type ResourceViewMode = 'grid' | 'list';
 
 export interface ResourceDirectoryProps<T extends BaseResourceItem> {
   title: string;
@@ -20,6 +23,7 @@ export interface ResourceDirectoryProps<T extends BaseResourceItem> {
   countLabel?: string;
   onNavigateToSummary: () => void;
   renderCard: (item: T, copyLink: (url: string, id: string) => void, isItemCopied: boolean) => React.ReactNode;
+  renderListItem?: (item: T, copyLink: (url: string, id: string) => void, isItemCopied: boolean) => React.ReactNode;
   customSearchFields?: (keyof T | string)[];
 }
 
@@ -33,10 +37,28 @@ export function ResourceDirectory<T extends BaseResourceItem>({
   countLabel = 'Items',
   onNavigateToSummary,
   renderCard,
+  renderListItem,
   customSearchFields,
 }: ResourceDirectoryProps<T>) {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [viewMode, setViewMode] = useState<ResourceViewMode>(() => {
+    try {
+      return (localStorage.getItem('resource_directory_view_mode') as ResourceViewMode) || 'grid';
+    } catch {
+      return 'grid';
+    }
+  });
+
+  const handleSetViewMode = (mode: ResourceViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem('resource_directory_view_mode', mode);
+    } catch {
+      // ignore storage errors
+    }
+  };
+
   const { isCopied, copy: copyLink } = useClipboardCopy(2000);
 
   // Dynamically derive categories from items if loaded from Supabase or fallback to provided list
@@ -170,8 +192,8 @@ export function ResourceDirectory<T extends BaseResourceItem>({
         </div>
       </div>
 
-      {/* Results Header Count */}
-      <div className="flex items-center justify-between px-1">
+      {/* Results Header Count & View Mode Switcher */}
+      <div className="flex items-center justify-between px-1 flex-wrap gap-2.5">
         <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
           Showing <span className="text-slate-800 dark:text-slate-200 font-bold">{filteredItems.length}</span> of{' '}
           <span className="text-slate-800 dark:text-slate-200 font-bold">{items.length}</span> {countLabel.toLowerCase()}
@@ -189,24 +211,134 @@ export function ResourceDirectory<T extends BaseResourceItem>({
           )}
         </p>
 
-        {(selectedCategory !== 'All' || searchQuery) && (
-          <button
-            onClick={() => {
-              setSelectedCategory('All');
-              setSearchQuery('');
-            }}
-            className="text-xs font-bold text-fotoblue-600 dark:text-fotoblue-400 hover:text-fotoblue-800 dark:hover:text-fotoblue-300 transition-colors cursor-pointer"
-          >
-            Reset Filters
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {(selectedCategory !== 'All' || searchQuery) && (
+            <button
+              onClick={() => {
+                setSelectedCategory('All');
+                setSearchQuery('');
+              }}
+              className="text-xs font-bold text-fotoblue-600 dark:text-fotoblue-400 hover:text-fotoblue-800 dark:hover:text-fotoblue-300 transition-colors cursor-pointer mr-1"
+            >
+              Reset Filters
+            </button>
+          )}
+
+          {/* View Mode Toggle: Grid vs List */}
+          <div className="inline-flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700">
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('grid')}
+              className={`px-2 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs font-medium ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-slate-900 text-fotoblue-600 dark:text-fotoblue-400 shadow-2xs font-bold'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+              title="Grid View"
+              aria-label="Grid View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="text-[11px] hidden sm:inline">Grid</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSetViewMode('list')}
+              className={`px-2 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 text-xs font-medium ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-slate-900 text-fotoblue-600 dark:text-fotoblue-400 shadow-2xs font-bold'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+              title="List View"
+              aria-label="List View"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span className="text-[11px] hidden sm:inline">List</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Cards Grid */}
+      {/* Resource Items: Grid or List */}
       {filteredItems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
-          {filteredItems.map((item) => renderCard(item, copyLink, isCopied(item.id)))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+            {filteredItems.map((item) => renderCard(item, copyLink, isCopied(item.id)))}
+          </div>
+        ) : (
+          <div className="flex flex-col space-y-2.5 sm:space-y-3">
+            {filteredItems.map((item) => {
+              const isItemCopied = isCopied(item.id);
+              if (renderListItem) {
+                return renderListItem(item, copyLink, isItemCopied);
+              }
+              // Generic fallback list item
+              return (
+                <div
+                  key={item.id}
+                  className="bg-white dark:bg-slate-900 rounded-xl p-3.5 sm:p-4 border border-slate-200/85 dark:border-slate-800 hover:border-fotoblue-300 dark:hover:border-fotoblue-700 shadow-2xs hover:shadow-xs transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                >
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="w-8 h-8 rounded-lg bg-fotoblue-50 dark:bg-fotoblue-950/60 group-hover:bg-fotoblue-100 dark:group-hover:bg-fotoblue-900/60 border border-fotoblue-100 dark:border-fotoblue-900 flex items-center justify-center text-fotoblue-600 dark:text-fotoblue-400 transition-colors shrink-0 mt-0.5">
+                      <IconComponent className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-fotoblue-700 dark:group-hover:text-fotoblue-400 transition-colors">
+                          {item.name}
+                        </h3>
+                        {item.categories?.map((cat: string) => (
+                          <span
+                            key={cat}
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
+                          >
+                            {cat}
+                          </span>
+                        ))}
+                      </div>
+                      {item.description && (
+                        <ExpandableDescription text={item.description} className="mb-0" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800 w-full sm:w-auto">
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-fotoblue-50 dark:bg-fotoblue-950/60 hover:bg-fotoblue-600 hover:text-white text-fotoblue-700 dark:text-fotoblue-300 text-xs font-bold transition-all cursor-pointer group/btn"
+                    >
+                      <span>Open</span>
+                      <ExternalLink className="w-3.5 h-3.5 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                    </a>
+                    <button
+                      onClick={() => copyLink(item.url, item.id)}
+                      className={`inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                        isItemCopied
+                          ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                          : 'bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      }`}
+                      title="Copy Link"
+                    >
+                      {isItemCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-[11px]">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                          <span className="text-[11px]">Copy</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
       ) : (
         /* Empty State */
         <div className="bg-white dark:bg-slate-900 rounded-xl p-8 border border-slate-200/80 dark:border-slate-800 text-center space-y-3">

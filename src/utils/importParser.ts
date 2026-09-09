@@ -172,9 +172,9 @@ export function parseExcelRow(
   const rawLicense = cols[10].toLowerCase();
   let license: SupportLicense = 'support_active';
 
-  if (rawLicense.includes('renewal')) {
+  if (rawLicense.includes('renewal') || rawLicense.includes('link')) {
     license = 'renewal_sent';
-  } else if (rawLicense.includes('inactive') || rawLicense === 'no') {
+  } else if (rawLicense.includes('inactive') || rawLicense.includes('without') || rawLicense === 'no') {
     license = 'support_inactive';
   }
 

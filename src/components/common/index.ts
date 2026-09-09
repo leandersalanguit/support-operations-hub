@@ -15,3 +15,4 @@ export * from './useListKeyboardNavigation';
 export * from './useClickOutside';
 export * from './formNavigation';
 export * from './ResourceDirectory';
+export * from './ExpandableDescription';

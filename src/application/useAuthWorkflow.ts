@@ -16,7 +16,6 @@ import {
 } from '../domain';
 import { checkPasswordBreach } from '../utils/passwordSecurity';
 import {
-  MOCK_DEMO_PERSONAS,
   DEFAULT_MOCK_PERSONA_ID,
   getMockPersonaById,
   MockPersona,
@@ -88,38 +87,37 @@ export function checkMustChangePassword(user: User | null | undefined): boolean 
 
 export function useAuthWorkflow() {
   const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.has('demo')) return true;
+    // If a user database is detected, demo mode is strictly disabled
+    if (isSupabaseConfigured || typeof window === 'undefined') return false;
     return Boolean(sessionStorage.getItem(DEMO_STORAGE_KEY));
   });
 
   const [activePersonaId, setActivePersonaId] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_MOCK_PERSONA_ID;
-    const urlParams = new URLSearchParams(window.location.search);
-    const paramVal = urlParams.get('demo');
-    if (paramVal && MOCK_DEMO_PERSONAS.some((p) => p.id === paramVal)) {
-      return paramVal;
-    }
+    if (isSupabaseConfigured || typeof window === 'undefined') return DEFAULT_MOCK_PERSONA_ID;
     return sessionStorage.getItem(DEMO_STORAGE_KEY) || DEFAULT_MOCK_PERSONA_ID;
   });
 
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    if (typeof window === 'undefined') return null;
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasDemo = urlParams.has('demo') || Boolean(sessionStorage.getItem(DEMO_STORAGE_KEY));
-    if (hasDemo) {
-      const paramVal = urlParams.get('demo');
-      const targetId = (paramVal && MOCK_DEMO_PERSONAS.some((p) => p.id === paramVal))
-        ? paramVal
-        : sessionStorage.getItem(DEMO_STORAGE_KEY) || DEFAULT_MOCK_PERSONA_ID;
-      return createMockUser(getMockPersonaById(targetId));
+    // If a user database is detected, do not initialize with a mock user
+    if (isSupabaseConfigured || typeof window === 'undefined') return null;
+    const storedPersonaId = sessionStorage.getItem(DEMO_STORAGE_KEY);
+    if (storedPersonaId) {
+      return createMockUser(getMockPersonaById(storedPersonaId));
     }
     return null;
   });
 
   const [authLoading, setAuthLoading] = useState<boolean>(() => !isDemoMode);
   const [isPasswordChangeRequired, setIsPasswordChangeRequired] = useState<boolean>(false);
+
+  // If a user database is detected, purge any lingering demo storage
+  useEffect(() => {
+    if (isSupabaseConfigured && typeof window !== 'undefined') {
+      try {
+        sessionStorage.removeItem(DEMO_STORAGE_KEY);
+      } catch {}
+    }
+  }, []);
 
   const userRole: UserRole = getUserRole(currentUser);
   const isTeamLead = userRole === 'team_lead';
@@ -137,6 +135,9 @@ export function useAuthWorkflow() {
     : 'Support Agent';
 
   const enterDemoMode = useCallback((personaId = DEFAULT_MOCK_PERSONA_ID) => {
+    // Guard: demo mode is not permitted when a user database is detected
+    if (isSupabaseConfigured) return;
+
     const persona = getMockPersonaById(personaId);
     try {
       sessionStorage.setItem(DEMO_STORAGE_KEY, persona.id);
@@ -149,6 +150,9 @@ export function useAuthWorkflow() {
   }, []);
 
   const switchDemoPersona = useCallback((personaId: string) => {
+    // Guard: demo mode is not permitted when a user database is detected
+    if (isSupabaseConfigured) return;
+
     const persona = getMockPersonaById(personaId);
     try {
       sessionStorage.setItem(DEMO_STORAGE_KEY, persona.id);
@@ -160,11 +164,6 @@ export function useAuthWorkflow() {
   const exitDemoMode = useCallback(() => {
     try {
       sessionStorage.removeItem(DEMO_STORAGE_KEY);
-      if (typeof window !== 'undefined' && window.location.search.includes('demo')) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('demo');
-        window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
-      }
     } catch {}
     setIsDemoMode(false);
     setCurrentUser(null);
@@ -266,6 +265,8 @@ export function useAuthWorkflow() {
     isPasswordChangeRequired,
     setIsPasswordChangeRequired,
     isSupabaseConfigured,
+    isUserDatabaseDetected: isSupabaseConfigured,
+    isDemoAvailable: !isSupabaseConfigured,
     userRole,
     isTeamLead,
     currentAgentName,

@@ -15,18 +15,22 @@ import { useClickOutside } from './useClickOutside';
 export interface PhoneNumberFieldProps {
   value: string;
   onChange: (val: string) => void;
+  onBlur?: () => void;
   matchedClient?: ClientProfile | null;
   clientPhoneNumbers?: string[];
   error?: string;
   required?: boolean;
+  onStartNewNumber?: () => void;
 }
 
 export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
   value,
   onChange,
+  onBlur,
   matchedClient,
   clientPhoneNumbers = [],
   error,
+  onStartNewNumber,
 }) => {
   const [isCustomPhone, setIsCustomPhone] = useState<boolean>(false);
   const [showDefaultCountryCodeNotice, setShowDefaultCountryCodeNotice] = useState<boolean>(false);
@@ -34,6 +38,12 @@ export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // Reset custom phone entry mode if matched client changes
+  React.useEffect(() => {
+    setIsCustomPhone(false);
+  }, [matchedClient?.id]);
 
   // Close dropdown on outside click
   useClickOutside(containerRef, () => setIsOpen(false), { enabled: isOpen });
@@ -61,8 +71,10 @@ export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
         triggerRef.current?.focus();
       } else {
         setIsCustomPhone(true);
+        onStartNewNumber?.();
         onChange('');
         setIsOpen(false);
+        setTimeout(() => inputRef.current?.focus(), 0);
       }
     },
     onClose: () => setIsOpen(false),
@@ -75,7 +87,7 @@ export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === ' ') {
         e.preventDefault();
         setIsOpen(true);
-      } else if (e.key === 'Enter' && !value) {
+      } else if (e.key === 'Enter') {
         e.preventDefault();
         setIsOpen(true);
       }
@@ -221,7 +233,9 @@ export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
             tabIndex={-1}
             onClick={() => {
               setIsCustomPhone(true);
+              onStartNewNumber?.();
               onChange('');
+              setTimeout(() => inputRef.current?.focus(), 0);
             }}
             className="text-fotoblue-600 dark:text-fotoblue-400 hover:underline font-bold text-[11px] cursor-pointer"
           >
@@ -235,9 +249,10 @@ export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
   return (
     <div>
       <input
+        ref={inputRef}
         type="tel"
         inputMode="tel"
-        placeholder={clientPhoneNumbers.length >= 2 ? "Enter new phone number (e.g. +1 234 567 8901)" : "Phone Number (e.g. +1 234 567 8901)"}
+        placeholder={matchedClient ? "Enter new phone number (e.g. +1 234 567 8901)" : "Phone Number (e.g. +1 234 567 8901)"}
         value={value}
         onKeyDown={(e) => {
           if (/^[a-zA-Z]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -274,6 +289,7 @@ export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
           } else {
             setShowDefaultCountryCodeNotice(false);
           }
+          onBlur?.();
         }}
         className={`w-full px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800 border rounded-xl shadow-2xs focus:outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
           error
@@ -321,20 +337,44 @@ export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
         matchedClient && (
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
             {clientPhoneNumbers.length === 1 ? (
-              <>
-                <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span>Known saved number: <strong className="font-mono text-slate-800 dark:text-slate-200">{clientPhoneNumbers[0]}</strong></span>
-                </span>
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => onChange('')}
-                  className="text-fotoblue-600 dark:text-fotoblue-400 hover:underline font-bold text-[11px] cursor-pointer"
-                >
-                  + Add / Change Number
-                </button>
-              </>
+              !isCustomPhone ? (
+                <>
+                  <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                    <span>Known saved number: <strong className="font-mono text-slate-800 dark:text-slate-200">{clientPhoneNumbers[0]}</strong></span>
+                  </span>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => {
+                      setIsCustomPhone(true);
+                      onStartNewNumber?.();
+                      onChange('');
+                      setTimeout(() => inputRef.current?.focus(), 0);
+                    }}
+                    className="text-fotoblue-600 dark:text-fotoblue-400 hover:underline font-bold text-[11px] cursor-pointer"
+                  >
+                    + Add / Change Number
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-slate-500 dark:text-slate-400 text-[11px]">
+                    Entering new number for <strong>{matchedClient.name}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => {
+                      setIsCustomPhone(false);
+                      onChange(clientPhoneNumbers[0] || '');
+                    }}
+                    className="text-fotoblue-600 dark:text-fotoblue-400 hover:underline font-bold text-[11px] cursor-pointer"
+                  >
+                    ← Use saved number ({clientPhoneNumbers[0]})
+                  </button>
+                </>
+              )
             ) : (
               <span className="text-slate-500 dark:text-slate-400 text-[11px]">
                 No phone on file for <strong>{matchedClient.name}</strong> • Enter number above to save it

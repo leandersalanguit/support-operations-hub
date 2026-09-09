@@ -20,7 +20,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
-import { supabase } from '../infrastructure/supabase/client';
+import { supabase, isSupabaseConfigured } from '../infrastructure/supabase/client';
 import { formatAgentDisplayName, normalizeAuthEmail } from '../domain';
 import { checkMustChangePassword } from '../application/useAuthWorkflow';
 import { checkPasswordBreach } from '../utils/passwordSecurity';
@@ -321,7 +321,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     type="text"
                     value={handle}
                     onChange={(e) => setHandle(e.target.value)}
-                    placeholder="user@fm.ph"
+                    placeholder="agent@domain.com"
                     autoComplete="username"
                     autoFocus
                     className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-fotoblue-500 focus:bg-white dark:focus:bg-slate-800 transition-all"
@@ -379,7 +379,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </form>
           )}
 
-          {onEnterDemo && !isPasswordChangeRequired && (
+          {onEnterDemo && !isPasswordChangeRequired && !isSupabaseConfigured && (
             <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-slate-800">
               <div className="flex items-center justify-between mb-2.5">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
