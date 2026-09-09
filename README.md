@@ -204,6 +204,7 @@ support-operations-hub/
 │   ├── domain/                      # Pure domain layer (zero external framework dependencies)
 │   │   ├── agent/                         # Agent profiles and permission policies
 │   │   ├── client/                        # Client profile types, phone sanitizer, name resolver
+│   │   │   ├── diff.ts                    # Pure client attribute comparison & diff calculation
 │   │   │   ├── nameResolution.ts          # Company name cleaner & canonicalization
 │   │   │   ├── phone.ts                   # Phone formatting & international sanitization
 │   │   │   ├── repository.ts              # Client repository interface contract
@@ -253,6 +254,13 @@ support-operations-hub/
 │   │   │   ├── useClickOutside.ts         # Click-outside hook
 │   │   │   ├── useListKeyboardNavigation.ts # Arrow-key list navigation hook
 │   │   │   └── index.ts                   # Common components barrel export
+│   │   ├── interaction-form/              # Decomposed interaction logging subcomponents
+│   │   │   ├── InteractionGeneralFields.tsx # Date, agent, and client autocomplete
+│   │   │   ├── InteractionChannelFields.tsx # Channel type & ticket / phone inputs
+│   │   │   ├── InteractionProductFields.tsx # Product, classification & status selectors
+│   │   │   ├── InteractionContextFields.tsx # License, in-event & first-time flags
+│   │   │   ├── InteractionNotesField.tsx    # Additional troubleshooting notes textarea
+│   │   │   └── index.ts                   # Interaction form subcomponents barrel
 │   │   ├── AppLogo.tsx                    # Generic vector shield + headset SVG emblem
 │   │   ├── AuthModal.tsx                  # Authentication & password change gatekeeper dialog
 │   │   ├── ClientDirectory.tsx            # Dedicated Client CRM directory view
@@ -270,7 +278,7 @@ support-operations-hub/
 │   │
 │   ├── utils/                       # Date helpers, theme handlers, parsers & security
 │   │   ├── channelDetails.ts              # Phone vs Ticket URL/ID validation
-│   │   ├── clientDiff.ts                  # Client profile attribute diffing
+│   │   ├── clientDiff.ts                  # Re-export facade to domain/client/diff
 │   │   ├── clipboard.ts                   # Safe clipboard reading & writing helpers
 │   │   ├── date.ts                        # Date formatting & shift time resolution
 │   │   ├── helpdesk.ts                    # Helpdesk ticket URL template interpolation
