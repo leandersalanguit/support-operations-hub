@@ -28,6 +28,7 @@ export const ExpandableDescription: React.FC<ExpandableDescriptionProps> = ({
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
+    if (typeof ResizeObserver === 'undefined') return;
 
     const measureHeight = () => {
       if (el) {

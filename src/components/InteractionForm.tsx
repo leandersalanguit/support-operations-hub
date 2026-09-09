@@ -743,6 +743,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                           }
                           field.onChange(val);
                         }}
+                        onBlur={field.onBlur}
                         onStartNewNumber={() => {
                           suppressPhoneEmptyErrorRef.current = true;
                           clearErrors('phoneDetail');
@@ -1239,6 +1240,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                           }
                           field.onChange(val);
                         }}
+                        onBlur={field.onBlur}
                         onStartNewNumber={() => {
                           suppressPhoneEmptyErrorRef.current = true;
                           clearErrors('phoneDetail');

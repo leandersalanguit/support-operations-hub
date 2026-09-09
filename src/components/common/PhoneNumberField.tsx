@@ -15,6 +15,7 @@ import { useClickOutside } from './useClickOutside';
 export interface PhoneNumberFieldProps {
   value: string;
   onChange: (val: string) => void;
+  onBlur?: () => void;
   matchedClient?: ClientProfile | null;
   clientPhoneNumbers?: string[];
   error?: string;
@@ -25,6 +26,7 @@ export interface PhoneNumberFieldProps {
 export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
   value,
   onChange,
+  onBlur,
   matchedClient,
   clientPhoneNumbers = [],
   error,
@@ -287,6 +289,7 @@ export const PhoneNumberField: React.FC<PhoneNumberFieldProps> = React.memo(({
           } else {
             setShowDefaultCountryCodeNotice(false);
           }
+          onBlur?.();
         }}
         className={`w-full px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-800 border rounded-xl shadow-2xs focus:outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500 ${
           error
