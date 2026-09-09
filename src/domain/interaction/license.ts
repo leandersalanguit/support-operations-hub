@@ -5,7 +5,11 @@
 
 import { InactiveSupportOption } from '../../types';
 
-export type SupportLicense = 'support_active' | 'renewal_sent' | 'support_inactive' | string;
+export type SupportLicense =
+  | 'support_active'
+  | 'renewal_sent'
+  | 'support_inactive'
+  | (string & {});
 
 /**
  * Checks whether the license represents an active support license agreement.

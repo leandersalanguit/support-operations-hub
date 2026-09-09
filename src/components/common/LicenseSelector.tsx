@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { ShieldCheck, Check, X, Cloud, Mail } from 'lucide-react';
-import { SupportLicense } from '../../domain/interaction/license';
+import { SupportLicense, isLicenseActive as isLicenseActiveDomain } from '../../domain/interaction/license';
 import { SupportTier } from '../../infrastructure/supabase/configRepo';
 
 export interface LicenseSelectorProps {
@@ -27,11 +27,10 @@ export const FALLBACK_INACTIVE_TIERS: SupportTier[] = [
 
 /**
  * Determines whether a tier from the database represents the active support license ("Yes").
- * Evaluated dynamically based on database configuration (isDefault: true, or exportLabel: 'Yes').
+ * Inferred dynamically based on database export configuration (exportLabel: 'Yes').
  */
 export function isTierActive(tier: SupportTier): boolean {
-  if (tier.isDefault) return true;
-  const exportLabel = (tier.exportLabel || '').toLowerCase().trim();
+  const exportLabel = (tier.exportLabel || '').trim().toLowerCase();
   if (exportLabel === 'yes') return true;
   return tier.code === 'support_active';
 }
@@ -46,7 +45,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
   // Resolve active tier dynamically from database fetch
   const activeTier = supportTiers.find((t) => isTierActive(t));
   const activeCode = activeTier?.code || 'support_active';
-  const isLicenseActive = license === activeCode || license === 'support_active' || license === 'Yes';
+  const isLicenseActive = license === activeCode || isLicenseActiveDomain(license);
 
   // Dynamic inactive tiers from Supabase (excluding the active tier)
   const dbInactiveTiers = supportTiers.filter((t) => !isTierActive(t));
@@ -134,9 +133,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
                 const isSelected =
                   license === tier.code ||
                   (!isLicenseActive && !inactiveTiers.some((t) => t.code === license) && tier.code === inactiveTiers[0].code);
-                const isRenewal =
-                  tier.code.toLowerCase().includes('renewal') ||
-                  tier.code.toLowerCase().includes('link');
+                const isRenewal = /renewal|link|send|sent/i.test(`${tier.code} ${tier.label}`);
 
                 return (
                   <button
@@ -254,9 +251,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
               const isSelected =
                 license === tier.code ||
                 (!isLicenseActive && !inactiveTiers.some((t) => t.code === license) && tier.code === inactiveTiers[0].code);
-              const isRenewal =
-                tier.code.toLowerCase().includes('renewal') ||
-                tier.code.toLowerCase().includes('link');
+              const isRenewal = /renewal|link|send|sent/i.test(`${tier.code} ${tier.label}`);
 
               return (
                 <button
