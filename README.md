@@ -342,6 +342,23 @@ npm run dev
 
 The application will be accessible at `http://localhost:5173/`.
 
+### Automated Testing & CI Quality Gate
+
+The project uses [Vitest](https://vitest.dev/) for high-speed unit testing of domain policies, calculators, and sanitizers, alongside GitHub Actions for pull request verification:
+
+```bash
+# Run automated unit test suite
+npm test
+
+# Run tests in interactive watch mode
+npm run test:watch
+```
+
+Automated CI quality gates (`.github/workflows/ci.yml`) enforce:
+1. **Lint & Type Check** (`npx tsc --noEmit`)
+2. **Unit Tests** (`npm test`)
+3. **Build & Asset Verification** (`npm run build`)
+
 ### Production Build & Verification
 
 Type-check and compile the production bundle:
