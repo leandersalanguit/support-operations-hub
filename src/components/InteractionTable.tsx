@@ -38,6 +38,7 @@ import { filterAndSortInteractions } from '../utils/interactionFilters';
 import { parseChannelDetails } from '../utils/channelDetails';
 import { formatInteractionForExcelClipboard } from '../infrastructure/export/spreadsheetExporter';
 import { formatAgentDisplayName, canModifyInteractionPolicy, UserRole, isLicenseActive } from '../domain';
+import { isTierActive } from './common/LicenseSelector';
 import { usePagination, PAGE_SIZE_OPTIONS } from '../utils/pagination';
 
 /**
@@ -690,18 +691,17 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
                       <div className="flex flex-col items-center justify-center gap-1 select-none">
                         {/* Support License Indicator */}
                         {(() => {
-                          const isAct = isLicenseActive(item.license);
                           const matchedTier = supportTiers?.find((t) => t.code === item.license);
+                          const isAct = isLicenseActive(item.license) || (matchedTier ? isTierActive(matchedTier) : false);
                           const isRen = !isAct && (
                             item.license === 'renewal_sent' ||
-                            (item.license || '').toLowerCase().includes('renewal') ||
-                            (item.license || '').toLowerCase().includes('link')
+                            /renewal|link|send|sent/i.test(`${item.license || ''} ${matchedTier?.label || ''}`)
                           );
                           const titleText = isAct
                             ? `Support License: Valid${matchedTier ? ` (${matchedTier.label})` : ''}`
                             : `Support License: Inactive (${matchedTier?.label || (isRen ? 'Renewal Sent' : 'Support Inactive')})`;
                           const badgeText = isAct
-                            ? 'License'
+                            ? (matchedTier?.code === 'support_active' ? 'License' : matchedTier?.label || 'License')
                             : matchedTier
                             ? matchedTier.label
                             : isRen
@@ -711,7 +711,7 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
                           return (
                             <span
                               title={titleText}
-                              className={`w-full max-w-[70px] inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-transparent ${
+                              className={`w-full max-w-[82px] inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-transparent ${
                                 isAct
                                   ? 'text-emerald-700 dark:text-emerald-300 bg-emerald-50/90 dark:bg-emerald-950/40 font-semibold'
                                   : isRen
@@ -738,7 +738,7 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
                         {/* In Event Indicator */}
                         <span
                           title={item.inEvent ? 'In Event: YES' : 'In Event: NO'}
-                          className={`w-full max-w-[70px] inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-transparent ${
+                          className={`w-full max-w-[82px] inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-transparent ${
                             item.inEvent
                               ? 'text-fotoblue-700 dark:text-fotoblue-300 bg-fotoblue-50/90 dark:bg-fotoblue-950/40 font-semibold'
                               : 'text-slate-400 dark:text-slate-500 bg-slate-50/90 dark:bg-slate-800/40'
@@ -759,7 +759,7 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
                               ? 'First Time Using Product: YES'
                               : 'First Time Using Product: NO'
                           }
-                          className={`w-full max-w-[70px] inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-transparent ${
+                          className={`w-full max-w-[82px] inline-flex items-center justify-center gap-1.5 px-2 py-0.5 rounded-lg text-[10px] font-medium border border-transparent ${
                             item.firstTimeUser
                               ? 'text-indigo-700 dark:text-indigo-300 bg-indigo-50/90 dark:bg-indigo-950/40 font-semibold'
                               : 'text-slate-400 dark:text-slate-500 bg-slate-50/90 dark:bg-slate-800/40'
