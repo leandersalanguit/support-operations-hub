@@ -1,7 +1,7 @@
 /**
  * @file AuthModal.tsx
  * @description Authentication modal and gatekeeper screen for Support Operations Hub.
- * Handles agent sign-in and forces first-time password resets for temporary accounts.
+ * Handles agent sign-in, guest interactive demo preview, and forces first-time password resets for temporary accounts.
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -43,6 +43,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onAuthSuccess,
   onEnterDemo,
 }) => {
+  // Determine if public demo mode is available
+  const isDemoAvailable = Boolean(onEnterDemo && !isPasswordChangeRequired && !isSupabaseConfigured);
+  const [authTab, setAuthTab] = useState<'demo' | 'signin'>(isDemoAvailable ? 'demo' : 'signin');
+
   // Sign-in state
   const [handle, setHandle] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -161,8 +165,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const name = formatAgentDisplayName(activeUser?.user_metadata?.name || activeUser?.email);
 
       // Short delay to show success state before transitioning into the dashboard.
-      // The timer is tracked in a ref so it can be cancelled if the component
-      // unmounts before the delay fires (e.g. auth state update beats the timer).
       authSuccessTimerRef.current = setTimeout(() => {
         onAuthSuccess(name);
       }, 1000);
@@ -174,31 +176,71 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
+  const isShowingDemoTab = isDemoAvailable && authTab === 'demo' && !isPasswordChangeRequired;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fadeIn">
       {/* Decorative background glow */}
       <div className="absolute w-96 h-96 bg-fotoblue-500/10 rounded-full blur-3xl pointer-events-none -top-10 -left-10" />
       <div className="absolute w-96 h-96 bg-fotoblue-600/10 rounded-full blur-3xl pointer-events-none -bottom-10 -right-10" />
 
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden">
+      <div
+        className={`relative w-full ${
+          isShowingDemoTab ? 'max-w-3xl' : 'max-w-md'
+        } bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden transition-all duration-200`}
+      >
         {/* Header Ribbon */}
-        <div className="bg-gradient-to-r from-fotoblue-900 via-fotoblue-800 to-slate-900 text-white px-6 py-7 text-center relative overflow-hidden">
+        <div className="bg-gradient-to-r from-fotoblue-900 via-fotoblue-800 to-slate-900 text-white px-6 py-6 text-center relative overflow-hidden">
           <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/5 rounded-full blur-xl pointer-events-none" />
-          <div className="inline-flex items-center justify-center p-3 bg-white/10 backdrop-blur-sm rounded-2xl mb-3 shadow-inner ring-1 ring-white/20">
+          <div className="inline-flex items-center justify-center p-2.5 bg-white/10 backdrop-blur-sm rounded-2xl mb-2.5 shadow-inner ring-1 ring-white/20">
             <AppLogo className="h-7 w-auto" />
           </div>
           <h2 className="text-xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
             Support Operations Hub
           </h2>
           <p className="text-xs text-fotoblue-200/80 mt-1 font-medium">
-            {isPasswordChangeRequired ? 'First-Time Security Setup' : 'Support Agent Sign-In'}
+            {isPasswordChangeRequired
+              ? 'First-Time Security Setup'
+              : isShowingDemoTab
+              ? 'Scranton Branch Interactive Sandbox'
+              : 'Support Agent Sign-In'}
           </p>
         </div>
+
+        {/* Dual Mode Switcher Tabs (if demo mode is available and not forcing a password change) */}
+        {isDemoAvailable && (
+          <div className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 p-1.5 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setAuthTab('demo')}
+              className={`flex-1 py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                authTab === 'demo'
+                  ? 'bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-300 shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-transparent'
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5 text-sky-500" />
+              <span>Interactive Demo (No Login)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setAuthTab('signin')}
+              className={`flex-1 py-2 px-3 rounded-xl font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                authTab === 'signin'
+                  ? 'bg-sky-500/15 border border-sky-500/30 text-sky-600 dark:text-sky-300 shadow-2xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-transparent'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span>Staff Sign-In</span>
+            </button>
+          </div>
+        )}
 
         {/* Modal Body */}
         <div className="p-6 sm:p-8">
           {isPasswordChangeRequired ? (
-            /* VIEW 2: First-Time Password Reset */
+            /* VIEW 1: Mandatory First-Time Password Reset */
             <form onSubmit={handleFirstTimePasswordChange} className="space-y-4">
               <div className="bg-fotoblue-50 dark:bg-fotoblue-950/50 border border-fotoblue-200 dark:border-fotoblue-800 rounded-2xl p-4 text-fotoblue-900 dark:text-fotoblue-200">
                 <div className="flex items-start gap-3">
@@ -284,23 +326,113 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {isUpdatingPassword ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Saving Password...</span>
-                  </>
-                ) : changePasswordSuccess ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Success!</span>
+                    <span>Updating Password...</span>
                   </>
                 ) : (
                   <>
-                    <span>Save Password & Enter</span>
+                    <span>Save Password & Continue</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
             </form>
+          ) : isShowingDemoTab ? (
+            /* VIEW 2: Overhauled Public Demo Sandbox Landing */
+            <div className="space-y-6">
+              <div className="text-center space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 text-xs font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                  <span>Live Browser Sandbox &bull; Zero Setup Required</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  Welcome to Dunder Mifflin Scranton Support
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg mx-auto leading-relaxed">
+                  Test-drive our shift operations dashboard with live customer phone lookups, role-based security rules, and offline sync. Choose who you&apos;d like to explore as:
+                </p>
+              </div>
+
+              {/* 3 Persona Cards Grid with Aligned Support Agent Roles */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                {MOCK_DEMO_PERSONAS.map((persona) => {
+                  const isLead = persona.role === 'team_lead';
+                  const isDwight = persona.id === 'dwight-schrute';
+
+                  return (
+                    <div
+                      key={persona.id}
+                      className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/70 hover:border-sky-500/50 dark:hover:border-sky-500/50 hover:bg-slate-100/70 dark:hover:bg-slate-850 transition-all flex flex-col justify-between shadow-2xs group"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2.5">
+                          <span
+                            className={`w-9 h-9 rounded-xl text-white flex items-center justify-center font-bold text-sm shadow-md ${
+                              isLead ? 'bg-emerald-600' : isDwight ? 'bg-sky-600' : 'bg-sky-500'
+                            }`}
+                          >
+                            {persona.avatarLetter}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                              isLead
+                                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300/80 dark:border-emerald-800/80'
+                                : 'bg-sky-100 dark:bg-sky-950 text-sky-800 dark:text-sky-300 border-sky-300/80 dark:border-sky-800/80'
+                            }`}
+                          >
+                            {persona.roleTitle}
+                          </span>
+                        </div>
+
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-300 transition-colors">
+                          {persona.name}
+                        </h4>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                          {persona.characterTitle}
+                        </div>
+
+                        <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-2 leading-snug">
+                          {persona.description}
+                        </p>
+
+                        <div
+                          className={`mt-3 p-2 rounded-lg border text-[10px] font-medium ${
+                            isLead
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/80'
+                              : 'bg-sky-50 dark:bg-sky-950/60 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-800/80'
+                          }`}
+                        >
+                          {isLead ? '⭐' : '🛡️'} <strong>System:</strong> {persona.permissionSummary}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onEnterDemo?.(persona.id)}
+                        className={`mt-4 w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-98 cursor-pointer ${
+                          isLead
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                            : isDwight
+                            ? 'bg-sky-600 hover:bg-sky-500 text-white'
+                            : 'bg-sky-500 hover:bg-sky-400 text-slate-950'
+                        }`}
+                      >
+                        <span>{persona.actionLabel}</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Feature trust badges */}
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-2 text-center text-[11px] text-slate-500 dark:text-slate-400">
+                <div>⚡ <strong>100% In-Browser</strong>: Safe sandbox, no DB mutations</div>
+                <div>🔄 <strong>Instant Reset</strong>: Revert to pristine sample state anytime</div>
+                <div>👥 <strong>Real RBAC</strong>: Test Agent (Jim/Dwight) vs Lead (Michael)</div>
+              </div>
+            </div>
           ) : (
-            /* VIEW 1: Standard Sign-In */
+            /* VIEW 3: Standard Staff Credentials Sign-In */
             <form onSubmit={handleSignIn} className="space-y-4">
               {errorMessage && (
                 <div className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-medium animate-shake">
@@ -376,47 +508,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </>
                 )}
               </button>
-            </form>
-          )}
 
-          {onEnterDemo && !isPasswordChangeRequired && !isSupabaseConfigured && (
-            <div className="mt-5 pt-4 border-t border-slate-200/80 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  Interactive Demo Preview
-                </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-semibold border border-amber-200/80 dark:border-amber-800/80">
-                  No Account Required
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2.5 leading-relaxed">
-                Visiting from GitHub? Explore the full operations hub instantly:
-              </p>
-              <div className="space-y-2">
-                {MOCK_DEMO_PERSONAS.map((persona) => (
+              {/* Quick switch to demo preview from inside sign-in */}
+              {isDemoAvailable && (
+                <div className="pt-2 text-center">
                   <button
-                    key={persona.id}
                     type="button"
-                    onClick={() => onEnterDemo(persona.id)}
-                    className="w-full py-2.5 px-3 bg-slate-50 hover:bg-slate-100/90 dark:bg-slate-800/80 dark:hover:bg-slate-700/60 border border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600 text-slate-800 dark:text-slate-200 rounded-xl transition-all flex items-center justify-between text-xs font-semibold group cursor-pointer shadow-2xs text-left"
+                    onClick={() => setAuthTab('demo')}
+                    className="text-xs text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400 transition-colors cursor-pointer"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-6 h-6 rounded-full bg-fotoblue-600 text-white flex items-center justify-center text-[11px] font-bold shrink-0">
-                        {persona.avatarLetter}
-                      </span>
-                      <div>
-                        <div className="font-semibold text-slate-900 dark:text-white">Enter as {persona.name}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">
-                          {persona.roleTitle} {persona.role === 'team_lead' ? '(supervisor permissions)' : '(standard permissions)'}
-                        </div>
-                      </div>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-fotoblue-600 dark:group-hover:text-fotoblue-400 transition-transform group-hover:translate-x-0.5 shrink-0" />
+                    Just visiting? Explore the <strong>Interactive Demo</strong> &rarr;
                   </button>
-                ))}
-              </div>
-            </div>
+                </div>
+              )}
+            </form>
           )}
         </div>
 
@@ -424,7 +529,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         <div className="bg-slate-50 dark:bg-slate-950/60 border-t border-slate-100 dark:border-slate-800 px-6 py-3.5 text-center">
           <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-fotoblue-500" />
-            <span>Support Operations Hub &bull; Secure Access</span>
+            <span>Support Operations Hub &bull; Dunder Mifflin Scranton</span>
           </p>
         </div>
       </div>
