@@ -407,7 +407,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => onEnterDemo(persona.id)}
+                        onClick={() => onEnterDemo?.(persona.id)}
                         className={`mt-4 w-full py-2.5 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-98 cursor-pointer ${
                           isLead
                             ? 'bg-emerald-600 hover:bg-emerald-500 text-white'

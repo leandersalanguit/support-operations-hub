@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, LogOut, ChevronDown, Check, Users, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { RefreshCw, LogOut, ChevronDown, Check, Users, HelpCircle, CheckCircle2 } from 'lucide-react';
 import { MOCK_DEMO_PERSONAS, getMockPersonaById } from '../data/mockDemoData';
 import { DemoTourModal } from './DemoTourModal';
 
