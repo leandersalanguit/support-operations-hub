@@ -111,10 +111,10 @@ export const Navbar: React.FC<NavbarProps> = React.memo(
                     </span>
                     <span className={`inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold ${
                       isDemo
-                        ? 'bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 border border-amber-300/60 dark:border-amber-700/60'
+                        ? 'bg-sky-100 dark:bg-sky-950/80 text-sky-800 dark:text-sky-300 border border-sky-300/60 dark:border-sky-700/60'
                         : 'bg-fotoblue-100 dark:bg-fotoblue-950/80 text-fotoblue-700 dark:text-fotoblue-300 border border-fotoblue-200/60 dark:border-fotoblue-800/60'
                     }`}>
-                      {isDemo ? 'Demo Preview' : 'v2.0'}
+                      {isDemo ? 'Scranton Ops' : 'v2.0'}
                     </span>
                   </div>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -157,11 +157,11 @@ export const Navbar: React.FC<NavbarProps> = React.memo(
               {/* Cloud Sync vs Demo Badge */}
               {isDemo ? (
                 <div
-                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 text-xs font-semibold border border-amber-200/80 dark:border-amber-800/60 shadow-2xs"
-                  title="Running in local interactive demo mode without Supabase"
+                  className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 text-xs font-semibold border border-sky-200/80 dark:border-sky-800/60 shadow-2xs"
+                  title="Running in local interactive demo sandbox without remote database mutations"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                  <span>Local Demo</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                  <span>Sandbox Mode</span>
                 </div>
               ) : (
                 <>

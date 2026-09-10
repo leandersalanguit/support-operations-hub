@@ -14,9 +14,13 @@ export interface MockPersona {
   displayName: string;
   role: UserRole;
   roleTitle: string;
+  characterTitle: string;
   email: string;
   avatarLetter: string;
   description: string;
+  quote: string;
+  actionLabel: string;
+  permissionSummary: string;
 }
 
 export const MOCK_DEMO_PERSONAS: MockPersona[] = [
@@ -26,29 +30,41 @@ export const MOCK_DEMO_PERSONAS: MockPersona[] = [
     displayName: 'Jim H.',
     role: 'support_agent',
     roleTitle: 'Support Agent',
+    characterTitle: 'Sales & Support Agent',
     email: 'jhalpert@dundermifflin.demo',
     avatarLetter: 'J',
-    description: 'Support Agent — standard operational permissions (edits own logs)',
+    description: 'Smirking at the camera between calls. Standard agent permissions: can log shifts, manage clients, and edit his own records.',
+    quote: '"Bears, beets... standard agent access."',
+    actionLabel: 'Clock in as Jim',
+    permissionSummary: 'Support Agent (Edits own logs only)',
   },
   {
     id: 'dwight-schrute',
     name: 'Dwight Schrute',
     displayName: 'Dwight S.',
     role: 'support_agent',
-    roleTitle: 'Assistant TO THE Regional Manager (Support Agent)',
+    roleTitle: 'Support Agent',
+    characterTitle: 'Assistant to the Regional Manager',
     email: 'dschrute@dundermifflin.demo',
     avatarLetter: 'D',
-    description: 'Assistant TO THE Regional Manager — logs with rigorous discipline',
+    description: 'Logs shift tickets with relentless discipline. Same agent permissions as Jim — tests Schrute Farms B&B security consoles and printer inventory lookups.',
+    quote: '"Question: What bear is best?"',
+    actionLabel: 'Report for Duty as Dwight',
+    permissionSummary: 'Support Agent (Same rights as Jim — edits own logs only)',
   },
   {
     id: 'michael-scott',
     name: 'Michael Scott',
     displayName: 'Michael S.',
     role: 'team_lead',
-    roleTitle: 'Regional Manager / Team Lead',
+    roleTitle: 'Team Lead',
+    characterTitle: 'Regional Manager ("World\'s Best Boss")',
     email: 'mscott@dundermifflin.demo',
     avatarLetter: 'M',
-    description: 'Regional Manager / Team Lead — supervisor permissions (edits/deletes all logs)',
+    description: '"You miss 100% of the shots you don\'t take." Full supervisor override: can modify or delete ANY agent\'s shift records and export branch audits.',
+    quote: '"World\'s Best Boss."',
+    actionLabel: 'Lead the Branch as Michael',
+    permissionSummary: 'Supervisor Override (Can edit & delete all logs)',
   },
 ];
 
