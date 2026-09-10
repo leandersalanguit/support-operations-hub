@@ -14,6 +14,12 @@ export interface ClientProfile {
   lastLoggedBy?: string;
 }
 
+/**
+ * Backward-compatible domain alias for ClientProfile.
+ */
+export type ClientRecord = ClientProfile;
+
 export type ClientFormData = Omit<ClientProfile, 'id' | 'createdAt' | 'updatedAt'> & {
   id?: string;
 };
+

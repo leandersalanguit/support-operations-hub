@@ -11,6 +11,7 @@ export * from './interaction/repository';
 export * from './client/types';
 export * from './client/phone';
 export * from './client/nameResolution';
+export * from './client/diff';
 export * from './client/repository';
 
 export * from './identity/types';

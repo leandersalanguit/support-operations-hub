@@ -3,7 +3,7 @@
  * @description Pure domain value object representing the support license and eligibility state of an interaction.
  */
 
-import { InactiveSupportOption } from '../../types';
+export type InactiveSupportOption = 'Renewal Sent' | 'Support Inactive';
 
 export type SupportLicense =
   | 'support_active'
