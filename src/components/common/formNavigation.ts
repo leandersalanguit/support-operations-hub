@@ -145,6 +145,42 @@ export function handleFormEnterKeyNavigation(
     }
   }
 
+  // 2b. Handle ArrowUp / ArrowDown between Support License toggle and its sub-menu
+  if (tagName === 'button' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    const licenseContainer = target.closest('[data-license-selector]');
+    if (licenseContainer) {
+      if (e.key === 'ArrowDown') {
+        const isToggleBtn = target.hasAttribute('data-license-toggle');
+        if (isToggleBtn) {
+          const renewalBtn = licenseContainer.querySelector<HTMLButtonElement>(
+            'button[data-license-renewal="true"], button[data-tier="renewal_sent"]'
+          );
+          if (renewalBtn && isElementVisible(renewalBtn)) {
+            e.preventDefault();
+            renewalBtn.focus();
+            return;
+          }
+          const subMenuBtn = licenseContainer.querySelector<HTMLButtonElement>('[data-license-sub-menu] button');
+          if (subMenuBtn && isElementVisible(subMenuBtn)) {
+            e.preventDefault();
+            subMenuBtn.focus();
+            return;
+          }
+        }
+      } else if (e.key === 'ArrowUp') {
+        const isSubMenuBtn = target.closest('[data-license-sub-menu]');
+        if (isSubMenuBtn) {
+          const noBtn = licenseContainer.querySelector<HTMLButtonElement>('button[data-license-toggle="no"]');
+          if (noBtn && isElementVisible(noBtn)) {
+            e.preventDefault();
+            noBtn.focus();
+            return;
+          }
+        }
+      }
+    }
+  }
+
   // 3. Only handle plain Enter key from this point forward
   if (e.key !== 'Enter' || e.shiftKey || e.altKey) {
     return;
@@ -169,7 +205,78 @@ export function handleFormEnterKeyNavigation(
   // 7. Non-submit buttons (toggle buttons, custom buttons)
   if (tagName === 'button') {
     const parent = target.parentElement;
-    // If it's part of a toggle group (e.g. Call/Chat, Yes/No), activate it and advance
+
+    // Special case for Support License "No" button:
+    // Clicking enter on No should move the focus to "Link Sent" / "Renewal Sent" in the sub-menu
+    const isLicenseNo =
+      target.getAttribute('data-license-toggle') === 'no' ||
+      (target.textContent?.trim() === 'No' && Boolean(target.closest('[data-license-selector]')));
+
+    if (isLicenseNo) {
+      e.preventDefault();
+      (target as HTMLButtonElement).click();
+
+      const focusRenewal = () => {
+        const form = e.currentTarget;
+        const licenseContainer = target.closest('[data-license-selector]') || form;
+        const renewalBtn = licenseContainer.querySelector<HTMLButtonElement>(
+          'button[data-license-renewal="true"], button[data-tier="renewal_sent"]'
+        );
+        if (renewalBtn && isElementVisible(renewalBtn)) {
+          renewalBtn.focus();
+          return true;
+        }
+
+        const subMenuButtons = Array.from(
+          licenseContainer.querySelectorAll<HTMLButtonElement>('[data-license-sub-menu] button')
+        ).filter(isElementVisible);
+        const match =
+          subMenuButtons.find((b) => /link|renewal|sent/i.test(b.textContent || '')) ||
+          subMenuButtons[1] ||
+          subMenuButtons[0];
+        if (match) {
+          match.focus();
+          return true;
+        }
+        return false;
+      };
+
+      if (!focusRenewal()) {
+        requestAnimationFrame(() => {
+          if (!focusRenewal()) {
+            setTimeout(focusRenewal, 10);
+          }
+        });
+      }
+      return;
+    }
+
+    // Special case for Support License "Yes" button:
+    // When Yes is chosen, advance past the entire license container to the next field (In Event)
+    const isLicenseYes =
+      target.getAttribute('data-license-toggle') === 'yes' ||
+      (target.textContent?.trim() === 'Yes' && Boolean(target.closest('[data-license-selector]')));
+
+    if (isLicenseYes) {
+      e.preventDefault();
+      (target as HTMLButtonElement).click();
+      const licenseContainer = target.closest('[data-license-selector]');
+      if (licenseContainer) {
+        const focusables = getFocusableElements(e.currentTarget);
+        const targetIdx = focusables.indexOf(target as HTMLElement);
+        const afterLicense = focusables.slice(targetIdx + 1).find(
+          (el) => !licenseContainer.contains(el)
+        );
+        if (afterLicense) {
+          afterLicense.focus();
+          return;
+        }
+      }
+      focusNextFormField(target, e.currentTarget);
+      return;
+    }
+
+    // If it's part of a toggle group (e.g. Call/Chat, Yes/No, sub-menu options), activate it and advance
     if (parent && parent.querySelectorAll('button').length > 1) {
       e.preventDefault();
       (target as HTMLButtonElement).click();

@@ -56,6 +56,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
   if (compact) {
     return (
       <div
+        data-license-selector="true"
         className={`p-3 rounded-xl border bg-white dark:bg-slate-800 flex flex-col justify-between transition-all ${
           error
             ? 'border-rose-400 ring-2 ring-rose-200 dark:ring-rose-900/50 bg-rose-50/20 dark:bg-rose-950/20'
@@ -88,6 +89,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
         <div className="grid grid-cols-2 gap-1.5 bg-slate-100 dark:bg-slate-700/70 p-1 rounded-lg text-xs font-bold">
           <button
             type="button"
+            data-license-toggle="yes"
             onClick={() => onChangeLicense(activeCode)}
             title={activeTier ? `${activeTier.label} (Active Support License)` : 'Active Support License'}
             className={`py-1.5 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
@@ -101,6 +103,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
           </button>
           <button
             type="button"
+            data-license-toggle="no"
             onClick={() => {
               if (isLicenseActive) {
                 onChangeLicense(inactiveTiers[0]?.code || 'support_inactive');
@@ -119,7 +122,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
 
         {/* Sub-menu when license is inactive */}
         {!isLicenseActive && (
-          <div className="mt-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-700 space-y-1">
+          <div data-license-sub-menu="true" className="mt-2.5 pt-2 border-t border-slate-200/80 dark:border-slate-700 space-y-1">
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300">
                 Sub-menu:
@@ -139,6 +142,8 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
                   <button
                     key={tier.code}
                     type="button"
+                    data-tier={tier.code}
+                    data-license-renewal={isRenewal ? 'true' : undefined}
                     onClick={() => onChangeLicense(tier.code)}
                     className={`py-1 px-1 rounded transition-all text-center cursor-pointer ${
                       isSelected
@@ -164,7 +169,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
     );
   }
   return (
-    <div>
+    <div data-license-selector="true">
       <div
         className={`p-4 rounded-xl border bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
           error
@@ -198,6 +203,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
         <div className="flex items-center gap-2 sm:w-48 bg-slate-100 dark:bg-slate-700/70 p-1 rounded-lg text-xs font-bold shrink-0">
           <button
             type="button"
+            data-license-toggle="yes"
             onClick={() => onChangeLicense(activeCode)}
             title={activeTier ? `${activeTier.label} (Active Support License)` : 'Active Support License'}
             className={`flex-1 py-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
@@ -211,6 +217,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
           </button>
           <button
             type="button"
+            data-license-toggle="no"
             onClick={() => {
               if (isLicenseActive) {
                 onChangeLicense(inactiveTiers[0]?.code || 'support_inactive');
@@ -236,7 +243,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
 
       {/* Sub-menu when license is inactive */}
       {!isLicenseActive && (
-        <div className="mt-2.5 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-800/80 space-y-2">
+        <div data-license-sub-menu="true" className="mt-2.5 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-800/80 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
               License Renewal Status / Action
@@ -257,6 +264,8 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
                 <button
                   key={tier.code}
                   type="button"
+                  data-tier={tier.code}
+                  data-license-renewal={isRenewal ? 'true' : undefined}
                   onClick={() => onChangeLicense(tier.code)}
                   className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
                     isSelected
