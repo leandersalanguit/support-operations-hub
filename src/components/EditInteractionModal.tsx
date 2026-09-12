@@ -39,10 +39,10 @@ import {
   MessageSquare,
   FileText,
   AlertCircle,
-  ShieldCheck,
   Zap,
   Sparkles,
 } from 'lucide-react';
+import { BooleanFieldToggle, EditInteractionAuditFooter } from './edit-interaction';
 
 /**
  * Props for the EditInteractionModal component.
@@ -539,59 +539,19 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
                 compact
               />
 
-              <div className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-fotoblue-600 dark:text-fotoblue-400" />
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">In Event *</span>
-                </div>
-                <div className="flex bg-slate-100 dark:bg-slate-700/70 p-0.5 rounded text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setInEvent(true)}
-                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                      inEvent ? 'bg-fotoblue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setInEvent(false)}
-                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                      !inEvent ? 'bg-slate-700 dark:bg-slate-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    No
-                  </button>
-                </div>
-              </div>
+              <BooleanFieldToggle
+                label="In Event *"
+                icon={Zap}
+                value={inEvent}
+                onChange={setInEvent}
+              />
 
-              <div className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-fotoblue-600 dark:text-fotoblue-400" />
-                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">1st Time *</span>
-                </div>
-                <div className="flex bg-slate-100 dark:bg-slate-700/70 p-0.5 rounded text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setFirstTimeUser(true)}
-                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                      firstTimeUser ? 'bg-fotoblue-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Yes
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFirstTimeUser(false)}
-                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
-                      !firstTimeUser ? 'bg-slate-700 dark:bg-slate-600 text-white shadow-xs' : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    No
-                  </button>
-                </div>
-              </div>
+              <BooleanFieldToggle
+                label="1st Time *"
+                icon={Sparkles}
+                value={firstTimeUser}
+                onChange={setFirstTimeUser}
+              />
             </div>
 
             {/* Notes */}
@@ -623,33 +583,10 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
             </div>
 
             {/* Read-Only Audit & Verification Info (Immutable outside editable fields) */}
-            <div className="bg-slate-50 dark:bg-slate-800/70 border border-slate-200/90 dark:border-slate-700 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs select-none">
-              <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
-                <User className="w-3.5 h-3.5 text-fotoblue-600 dark:text-fotoblue-400 shrink-0" />
-                <span>
-                  Original Creator: <strong className="text-slate-800 dark:text-slate-200 font-semibold">{formatAgentDisplayName(interaction.agent) || interaction.agent}</strong>
-                </span>
-                {interaction.createdAt && (
-                  <span className="text-slate-400 dark:text-slate-500 text-[11px]">
-                    ({new Date(interaction.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })})
-                  </span>
-                )}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {interaction.lastModifiedBy && (
-                  <span className="inline-flex items-center gap-1 text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 text-[11px]">
-                    Last modified by <strong className="text-slate-800 dark:text-slate-200">{formatAgentDisplayName(interaction.lastModifiedBy) || interaction.lastModifiedBy}</strong>
-                  </span>
-                )}
-                {currentAgentName && (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 text-[11px] font-semibold">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    Saving edit as {currentAgentName}
-                  </span>
-                )}
-              </div>
-            </div>
+            <EditInteractionAuditFooter
+              interaction={interaction}
+              currentAgentName={currentAgentName}
+            />
           </div>
 
         </ModalBody>
