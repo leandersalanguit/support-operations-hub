@@ -12,7 +12,7 @@ import {
   ChevronsRight,
   ArrowUp,
 } from 'lucide-react';
-import { PAGE_SIZE_OPTIONS } from '../../utils/pagination';
+import { PAGE_SIZE_OPTIONS, PageSize } from '../../utils/pagination';
 import { scrollToBottomSmooth } from '../../utils/scroll';
 
 export interface InteractionTablePaginationProps {
@@ -20,12 +20,12 @@ export interface InteractionTablePaginationProps {
   fromItem: number;
   toItem: number;
   currentPage: number;
-  pageSize: number;
+  pageSize: PageSize;
   totalPages: number;
   pageRange: (number | '...')[];
   canGoPrev: boolean;
   canGoNext: boolean;
-  setPageSize: (size: number) => void;
+  setPageSize: (size: PageSize) => void;
   setCurrentPage: (page: number) => void;
   goToNextPage: () => void;
   goToPrevPage: () => void;
@@ -33,6 +33,7 @@ export interface InteractionTablePaginationProps {
   goToLastPage: () => void;
   onScrollToTop: () => void;
   containerRef?: React.RefObject<HTMLDivElement | null>;
+  cancelScrollRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export const InteractionTablePagination: React.FC<InteractionTablePaginationProps> = React.memo(({
@@ -53,6 +54,7 @@ export const InteractionTablePagination: React.FC<InteractionTablePaginationProp
   goToLastPage,
   onScrollToTop,
   containerRef,
+  cancelScrollRef: externalCancelScrollRef,
 }) => {
   const prevButtonRef = useRef<HTMLButtonElement>(null);
   const nextButtonRef = useRef<HTMLButtonElement>(null);
@@ -61,13 +63,14 @@ export const InteractionTablePagination: React.FC<InteractionTablePaginationProp
   const activePageButtonRef = useRef<HTMLButtonElement>(null);
   const lastInteractedPaginationRef = useRef<string | null>(null);
   const pageSizeButtonsRef = useRef<Map<number, HTMLButtonElement>>(new Map());
-  const cancelScrollRef = useRef<(() => void) | null>(null);
+  const internalCancelScrollRef = useRef<(() => void) | null>(null);
+  const cancelScrollRef = externalCancelScrollRef || internalCancelScrollRef;
 
   useEffect(() => {
     return () => {
       if (cancelScrollRef.current) cancelScrollRef.current();
     };
-  }, []);
+  }, [cancelScrollRef]);
 
   // Maintain focus on the pagination buttons across page and size updates
   useEffect(() => {

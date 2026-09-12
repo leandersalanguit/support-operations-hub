@@ -14,7 +14,7 @@ import { useClipboardCopy } from '../utils/clipboard';
 import { scrollToTopSmooth, scrollToBottomSmooth } from '../utils/scroll';
 import { filterAndSortInteractions } from '../utils/interactionFilters';
 import { formatInteractionForExcelClipboard } from '../infrastructure/export/spreadsheetExporter';
-import { canModifyInteractionPolicy, UserRole } from '../domain';
+import { UserRole } from '../domain';
 import { usePagination } from '../utils/pagination';
 import {
   InteractionTableFilterBar,
@@ -297,6 +297,7 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
         goToLastPage={goToLastPage}
         onScrollToTop={handleScrollToTop}
         containerRef={paginationRef}
+        cancelScrollRef={cancelScrollRef}
       />
     </div>
   );

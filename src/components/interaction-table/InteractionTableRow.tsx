@@ -9,8 +9,8 @@ import React from 'react';
 import {
   Interaction,
   STATUS_OPTIONS,
-  SupportTier,
 } from '../../types';
+import { SupportTier } from '../../infrastructure/supabase/configRepo';
 import {
   Phone,
   MessageSquare,
