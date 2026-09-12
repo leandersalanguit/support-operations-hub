@@ -39,7 +39,6 @@ import {
   MessageSquare,
   FileText,
   AlertCircle,
-  ShieldCheck,
   Zap,
   Sparkles,
 } from 'lucide-react';
