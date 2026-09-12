@@ -529,7 +529,70 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
         onKeyDown={handleFormKeyDown}
         className="p-6"
       >
-        {viewMode === 'vertical' ? (
+      {(() => {
+        const isCompact = viewMode === 'grid';
+
+        const generalFields = (
+          <InteractionGeneralFields
+            register={register}
+            control={control}
+            errors={errors}
+            dayOfWeek={dayOfWeek}
+            agentName={agentName}
+            userRole={userRole}
+            clients={clients}
+            onDateChange={handleDateChange}
+            onSelectClientSuggestion={handleSelectClientSuggestion}
+            compact={isCompact}
+          />
+        );
+
+        const channelFields = (
+          <InteractionChannelFields
+            register={register}
+            control={control}
+            setValue={setValue}
+            clearErrors={clearErrors}
+            errors={errors}
+            channel={channel}
+            helpdeskName={helpdeskName}
+            matchedClient={matchedClient}
+            clientPhoneNumbers={clientPhoneNumbers}
+            suppressPhoneEmptyErrorRef={suppressPhoneEmptyErrorRef}
+            compact={isCompact}
+          />
+        );
+
+        const productFields = (
+          <InteractionProductFields
+            control={control}
+            errors={errors}
+            products={products}
+            classifications={classifications}
+            matchedClient={matchedClient}
+            userManuallySelectedProductRef={userManuallySelectedProductRef}
+            compact={isCompact}
+          />
+        );
+
+        const contextFields = (
+          <InteractionContextFields
+            control={control}
+            errors={errors}
+            supportTiers={supportTiers}
+            compact={isCompact}
+          />
+        );
+
+        const notesField = (
+          <InteractionNotesField
+            register={register}
+            errors={errors}
+            compact={isCompact}
+          />
+        );
+
+        return viewMode === 'vertical' ? (
           /* ========================================================================= */
           /* VERTICAL VIEW: Sequential, spacious vertical layout for easy entry        */
           /* ========================================================================= */
@@ -547,18 +610,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                 </div>
                 <span className="text-[11px] font-semibold text-rose-500">* Required</span>
               </div>
-
-              <InteractionGeneralFields
-                register={register}
-                control={control}
-                errors={errors}
-                dayOfWeek={dayOfWeek}
-                agentName={agentName}
-                userRole={userRole}
-                clients={clients}
-                onDateChange={handleDateChange}
-                onSelectClientSuggestion={handleSelectClientSuggestion}
-              />
+              {generalFields}
             </div>
 
             {/* Step 2: Communication Channel */}
@@ -574,19 +626,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                 </div>
                 <span className="text-[11px] font-semibold text-rose-500">* Required</span>
               </div>
-
-              <InteractionChannelFields
-                register={register}
-                control={control}
-                setValue={setValue}
-                clearErrors={clearErrors}
-                errors={errors}
-                channel={channel}
-                helpdeskName={helpdeskName}
-                matchedClient={matchedClient}
-                clientPhoneNumbers={clientPhoneNumbers}
-                suppressPhoneEmptyErrorRef={suppressPhoneEmptyErrorRef}
-              />
+              {channelFields}
             </div>
 
             {/* Step 3: Product, Classification & Status */}
@@ -602,15 +642,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                 </div>
                 <span className="text-[11px] font-semibold text-rose-500">* Required</span>
               </div>
-
-              <InteractionProductFields
-                control={control}
-                errors={errors}
-                products={products}
-                classifications={classifications}
-                matchedClient={matchedClient}
-                userManuallySelectedProductRef={userManuallySelectedProductRef}
-              />
+              {productFields}
             </div>
 
             {/* Step 4: Support Eligibility & Event Context */}
@@ -626,13 +658,8 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                 </div>
                 <span className="text-[11px] font-semibold text-rose-500">* Required</span>
               </div>
-
               <div className="space-y-3">
-                <InteractionContextFields
-                  control={control}
-                  errors={errors}
-                  supportTiers={supportTiers}
-                />
+                {contextFields}
               </div>
             </div>
 
@@ -649,11 +676,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
                 </div>
                 <span className="text-[11px] font-semibold text-rose-500">* Required</span>
               </div>
-
-              <InteractionNotesField
-                register={register}
-                errors={errors}
-              />
+              {notesField}
             </div>
           </div>
         ) : (
@@ -663,48 +686,17 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
           <div className="space-y-6">
             {/* ROW 1: Date & Day, Agent, Client Name */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <InteractionGeneralFields
-                register={register}
-                control={control}
-                errors={errors}
-                dayOfWeek={dayOfWeek}
-                agentName={agentName}
-                userRole={userRole}
-                clients={clients}
-                onDateChange={handleDateChange}
-                onSelectClientSuggestion={handleSelectClientSuggestion}
-                compact
-              />
+              {generalFields}
             </div>
 
             {/* ROW 2: Channel & Channel Details */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80">
-              <InteractionChannelFields
-                register={register}
-                control={control}
-                setValue={setValue}
-                clearErrors={clearErrors}
-                errors={errors}
-                channel={channel}
-                helpdeskName={helpdeskName}
-                matchedClient={matchedClient}
-                clientPhoneNumbers={clientPhoneNumbers}
-                suppressPhoneEmptyErrorRef={suppressPhoneEmptyErrorRef}
-                compact
-              />
+              {channelFields}
             </div>
 
             {/* ROW 3: Client Product, Case Classification, Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <InteractionProductFields
-                control={control}
-                errors={errors}
-                products={products}
-                classifications={classifications}
-                matchedClient={matchedClient}
-                userManuallySelectedProductRef={userManuallySelectedProductRef}
-                compact
-              />
+              {productFields}
             </div>
 
             {/* UNIFIED SECTION: Additional Details (Flags + Additional Notes) */}
@@ -725,25 +717,17 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
 
               {/* 3 Boolean Flags */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <InteractionContextFields
-                  control={control}
-                  errors={errors}
-                  supportTiers={supportTiers}
-                  compact
-                />
+                {contextFields}
               </div>
 
               {/* Additional Notes Textarea within Additional Details */}
               <div className="pt-2">
-                <InteractionNotesField
-                  register={register}
-                  errors={errors}
-                  compact
-                />
+                {notesField}
               </div>
             </div>
           </div>
-        )}
+        );
+      })()}
 
         {/* Submit & Reset Bar */}
         <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-100 dark:border-slate-800">
