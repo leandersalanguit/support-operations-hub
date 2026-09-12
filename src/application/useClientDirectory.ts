@@ -14,7 +14,7 @@ import {
 } from '../infrastructure/storage/localStorageRepos';
 import { clientRepo } from '../infrastructure/supabase/clientRepo';
 import { isSupabaseConfigured } from '../infrastructure/supabase/client';
-import { computeClientDiff } from '../utils/clientDiff';
+import { computeClientDiff } from '../domain/client/diff';
 import { getMockInitialClients } from '../data/mockDemoData';
 
 export function useClientDirectory(

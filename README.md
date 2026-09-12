@@ -278,7 +278,6 @@ support-operations-hub/
 │   │
 │   ├── utils/                       # Date helpers, theme handlers, parsers & security
 │   │   ├── channelDetails.ts              # Phone vs Ticket URL/ID validation
-│   │   ├── clientDiff.ts                  # Re-export facade to domain/client/diff
 │   │   ├── clipboard.ts                   # Safe clipboard reading & writing helpers
 │   │   ├── date.ts                        # Date formatting & shift time resolution
 │   │   ├── helpdesk.ts                    # Helpdesk ticket URL template interpolation

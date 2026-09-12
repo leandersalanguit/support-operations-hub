@@ -8,6 +8,5 @@ export * from './resourceUtils';
 export * from './marketingFolders';
 export * from './installers';
 export * from './recommendedHardware';
-export * from './recommendedHardwareList';
 export * from './manuals';
 export * from './quickStartGuides';
