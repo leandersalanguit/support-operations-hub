@@ -30,9 +30,10 @@ export const FALLBACK_INACTIVE_TIERS: SupportTier[] = [
  * Inferred dynamically based on database export configuration (exportLabel: 'Yes').
  */
 export function isTierActive(tier: SupportTier): boolean {
+  if (tier.isDefault) return true;
   const exportLabel = (tier.exportLabel || '').trim().toLowerCase();
   if (exportLabel === 'yes') return true;
-  return tier.code === 'support_active';
+  return tier.code === 'support_active' || tier.code.toLowerCase().includes('active');
 }
 
 export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({

@@ -30,6 +30,7 @@ import { readTextFromClipboard } from '../utils/clipboard';
 import { PasteExcelModal } from './PasteExcelModal';
 import {
   handleFormEnterKeyNavigation,
+  isTierActive,
 } from './common';
 import {
   InteractionGeneralFields,
@@ -97,7 +98,8 @@ interface InteractionFormProps {
 const getDefaultValues = (
   agentName?: string,
   defaultProduct = '',
-  defaultClassification = ''
+  defaultClassification = '',
+  defaultLicense = 'support_active'
 ): InteractionFormInputs => {
   const initialDate = getTodayDateString();
   return {
@@ -111,7 +113,7 @@ const getDefaultValues = (
     clientProduct: defaultProduct || '',
     caseClassification: defaultClassification || '',
     status: 'Solved',
-    license: 'support_active',
+    license: defaultLicense,
     inEvent: true,
     firstTimeUser: false,
     additionalNotes: '',
@@ -138,6 +140,9 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
   const { products, classifications, supportTiers } = useTaxonomies();
   const helpdeskName = getHelpdeskName();
 
+  const defaultTier = supportTiers?.find((t) => t.isDefault) || supportTiers?.find((t) => isTierActive(t));
+  const defaultLicenseCode = defaultTier?.code || 'support_active';
+
   // View layout mode ('vertical' for clear vertical form flow, 'grid' for compact multi-column layout)
   const [viewMode, setViewMode] = useState<'grid' | 'vertical'>(() => loadFormViewMode());
   // Success toast visibility and message
@@ -161,7 +166,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
     clearErrors,
     formState: { errors, isSubmitted },
   } = useForm<InteractionFormInputs>({
-    defaultValues: getDefaultValues(agentName, products[0] || '', classifications[0] || ''),
+    defaultValues: getDefaultValues(agentName, products[0] || '', classifications[0] || '', defaultLicenseCode),
     mode: 'onSubmit',
   });
 
@@ -178,8 +183,8 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
   // Suppress immediate empty phone error when user explicitly starts adding/changing a number
   const suppressPhoneEmptyErrorRef = useRef<boolean>(false);
 
-  // Automatically select the default product (item 1 in the database or matched client's product)
-  // and classification once fetched from the database
+  // Automatically select the default product (item 1 in the database or matched client's product),
+  // classification, and active support license once fetched from the database
   useEffect(() => {
     if (products.length > 0) {
       const current = getValues('clientProduct');
@@ -196,7 +201,16 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
         setValue('caseClassification', classifications[0], { shouldValidate: false });
       }
     }
-  }, [products, classifications, matchedClient, setValue, getValues]);
+    if (supportTiers.length > 0) {
+      const currentLicense = getValues('license');
+      const activeTier = supportTiers.find((t) => t.isDefault) || supportTiers.find((t) => isTierActive(t));
+      const activeCode = activeTier?.code || 'support_active';
+      // Sync form license to active tier if current license is the fallback or not in loaded tiers
+      if (!currentLicense || currentLicense === 'support_active' || !supportTiers.some((t) => t.code === currentLicense)) {
+        setValue('license', activeCode, { shouldValidate: false });
+      }
+    }
+  }, [products, classifications, supportTiers, matchedClient, setValue, getValues]);
 
   // Track the last matched client to avoid repeatedly resetting user edits
   const lastAutoFilledClientRef = useRef<string | null>(null);
@@ -379,7 +393,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
       clientProduct: data.clientProduct,
       caseClassification: data.caseClassification,
       status: data.status as StatusType,
-      license: data.license || 'support_active',
+      license: data.license || defaultLicenseCode,
       inEvent: data.inEvent === true,
       firstTimeUser: data.firstTimeUser === true,
       additionalNotes: data.additionalNotes.trim(),
@@ -392,8 +406,9 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
     // Reset form fields back to defaults with today's date, retaining the agent
     userManuallySelectedProductRef.current = false;
     reset({
-      ...getDefaultValues(agentName || formattedAgent, products[0] || '', classifications[0]),
+      ...getDefaultValues(agentName || formattedAgent, products[0] || '', classifications[0], defaultLicenseCode),
       agent: formattedAgent,
+      license: defaultLicenseCode,
     });
 
     // Show temporary feedback toast for 2.5s
@@ -411,8 +426,9 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
     lastAutoFilledClientRef.current = null;
     const currentValues = getValues();
     reset({
-      ...getDefaultValues(agentName || currentValues.agent, products[0] || '', classifications[0]),
+      ...getDefaultValues(agentName || currentValues.agent, products[0] || '', classifications[0], defaultLicenseCode),
       agent: currentValues.agent,
+      license: defaultLicenseCode,
     });
   };
 

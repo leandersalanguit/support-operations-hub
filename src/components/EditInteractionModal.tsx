@@ -25,6 +25,7 @@ import {
   StatusSelector,
   PhoneNumberField,
   LicenseSelector,
+  isTierActive,
   Modal,
   ModalHeader,
   ModalBody,
@@ -107,6 +108,10 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
   const [agent, setAgent] = useState<string>(''); // The name of the agent who handled the interaction
   const { products, classifications, supportTiers } = useTaxonomies();
   const helpdeskName = getHelpdeskName();
+
+  const defaultTier = supportTiers?.find((t) => t.isDefault) || supportTiers?.find((t) => isTierActive(t));
+  const defaultLicenseCode = defaultTier?.code || 'support_active';
+
   const [clientName, setClientName] = useState<string>(''); // The name of the client
   const [channel, setChannel] = useState<ChannelType>('Call'); // The communication channel ('Call' or 'Chat')
   const [channelDetails, setChannelDetails] = useState<string>(''); // Specific details for the channel (e.g., phone number or ticket ID)
@@ -118,7 +123,7 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
   const { matchedClient, clientPhoneNumbers } = useClientMatch(clientName, clients, interactions);
   
   // Boolean flags, not nullable since editing an existing interaction guarantees a value
-  const [license, setLicense] = useState<SupportLicense>('support_active'); // Support license state
+  const [license, setLicense] = useState<SupportLicense>(defaultLicenseCode); // Support license state
   const [inEvent, setInEvent] = useState<boolean>(false); // Indicates if the interaction occurred during an event
   const [firstTimeUser, setFirstTimeUser] = useState<boolean>(false); // Indicates if this is a first-time user
   
@@ -144,7 +149,7 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
       setClientProduct(interaction.clientProduct);
       setCaseClassification(interaction.caseClassification);
       setStatus(interaction.status);
-      setLicense(interaction.license || 'support_active');
+      setLicense(interaction.license || defaultLicenseCode);
       setInEvent(interaction.inEvent);
       setFirstTimeUser(interaction.firstTimeUser);
       setAdditionalNotes((interaction.additionalNotes || '').trim());
@@ -153,7 +158,7 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
       setErrors({});
       setSubmittedAttempt(false);
     }
-  }, [interaction]);
+  }, [interaction, defaultLicenseCode]);
 
   const handleSelectClientSuggestion = (client: ClientRecord) => {
     setClientName(client.name);
