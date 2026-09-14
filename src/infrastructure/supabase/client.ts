@@ -24,6 +24,17 @@ export const isUserDatabaseDetected = isSupabaseConfigured;
 const fallbackUrl = 'https://placeholder.supabase.co';
 const fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder';
 
+// Provide a mock WebSocket constructor for test/headless environments (e.g., CI Node < 22)
+// where global WebSocket is not natively available, preventing Supabase initialization crashes.
+if (typeof globalThis !== 'undefined' && typeof (globalThis as any).WebSocket === 'undefined') {
+  (globalThis as any).WebSocket = class DummyWebSocket {
+    addEventListener() {}
+    removeEventListener() {}
+    send() {}
+    close() {}
+  };
+}
+
 export const supabase = createClient(
   isSupabaseConfigured ? rawUrl : fallbackUrl,
   isSupabaseConfigured ? rawKey : fallbackKey
