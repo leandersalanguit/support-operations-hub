@@ -24,6 +24,7 @@ import { RecommendedHardwareDirectory } from './components/RecommendedHardwareDi
 import { ManualsDirectory } from './components/ManualsDirectory';
 import { QuickStartGuidesDirectory } from './components/QuickStartGuidesDirectory';
 import { ClientDirectory } from './components/ClientDirectory';
+import { OnboardingScheduler } from './components/onboarding';
 import { StatsCards } from './components/StatsCards';
 import { InteractionForm } from './components/InteractionForm';
 import { InteractionTable } from './components/InteractionTable';
@@ -326,6 +327,13 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
               clients={clients}
               currentAgentName={currentAgentName}
               onUpdateClients={updateClients}
+              onNavigateToSummary={() => setActiveTab('shift-summary')}
+            />
+          ) : activeTab === 'onboarding-scheduler' ? (
+            /* Dedicated Client Onboarding Scheduler View */
+            <OnboardingScheduler
+              clients={clients}
+              currentAgentName={currentAgentFullName || currentAgentName}
               onNavigateToSummary={() => setActiveTab('shift-summary')}
             />
           ) : activeTab === 'marketing-folders' ? (

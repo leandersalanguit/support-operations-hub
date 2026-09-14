@@ -27,6 +27,7 @@ import {
 export type TabKey =
   | 'shift-summary'
   | 'client-directory'
+  | 'onboarding-scheduler'
   | 'product-links'
   | 'installer'
   | 'quick-start-guide'
@@ -55,7 +56,10 @@ interface TabMeta {
   isEmpty?: boolean;
 }
 
-const TAB_METADATA: Record<Exclude<TabKey, 'shift-summary' | 'client-directory'>, TabMeta> = {
+const TAB_METADATA: Record<
+  Exclude<TabKey, 'shift-summary' | 'client-directory' | 'onboarding-scheduler'>,
+  TabMeta
+> = {
   'product-links': {
     title: 'Product Links Hub',
     category: 'Product Links',

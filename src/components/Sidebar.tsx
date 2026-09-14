@@ -24,6 +24,7 @@ import {
   Sun,
   Moon,
   Users,
+  CalendarCheck,
 } from 'lucide-react';
 import { TabKey } from './WorkInProgress';
 import { AppLogo } from './AppLogo';
@@ -238,6 +239,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }`}
               />
               {!isCollapsed && <span className="truncate">Client Directory</span>}
+            </div>
+          </button>
+
+          {/* Main Tab: Onboarding Scheduler */}
+          <button
+            onClick={() => handleItemClick('onboarding-scheduler')}
+            title="Onboarding Scheduler"
+            className={`w-full flex items-center ${
+              isCollapsed ? 'justify-center px-0' : 'justify-between px-3'
+            } py-2.5 rounded-xl font-medium text-xs transition-all cursor-pointer group ${
+              activeTab === 'onboarding-scheduler'
+                ? 'bg-gradient-to-r from-fotoblue-600 to-fotodeep-600 text-white shadow-xs font-semibold'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 truncate'}`}>
+              <CalendarCheck
+                className={`w-4.5 h-4.5 shrink-0 transition-transform group-hover:scale-110 ${
+                  activeTab === 'onboarding-scheduler'
+                    ? 'text-white'
+                    : 'text-fotoblue-600 dark:text-fotoblue-400'
+                }`}
+              />
+              {!isCollapsed && <span className="truncate">Onboarding Scheduler</span>}
             </div>
           </button>
 
