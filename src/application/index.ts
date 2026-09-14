@@ -9,3 +9,4 @@ export * from './useSyncPipeline';
 export * from './useClientDirectory';
 export * from './useClientMatch';
 export * from './useInteractionWorkflow';
+export * from './useOnboardingScheduler';
