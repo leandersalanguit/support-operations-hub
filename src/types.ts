@@ -47,4 +47,22 @@ export type {
   DbClient,
 } from './infrastructure/supabase/mappers';
 
+// Domain onboarding scheduler types
+export type {
+  OnboardingSlot,
+  ScheduledSession,
+  OnboardingSessionStatus,
+  OnboardingFormData,
+  ConvertedTimeResult,
+  TimezoneOption,
+  IOnboardingRepository,
+} from './domain';
+
+export {
+  COMMON_CLIENT_TIMEZONES,
+  convertPhtSlotToClientTimezone,
+  formatClientSlotMessage,
+  resolveTimezoneDisplayName,
+} from './domain';
+
 
