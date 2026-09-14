@@ -10,3 +10,4 @@ export * from './installers';
 export * from './recommendedHardware';
 export * from './manuals';
 export * from './quickStartGuides';
+export * from './onboardingSlots';
