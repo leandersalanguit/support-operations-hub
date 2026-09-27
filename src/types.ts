@@ -47,4 +47,19 @@ export type {
   DbClient,
 } from './infrastructure/supabase/mappers';
 
+// Domain catalog management types
+export type {
+  CatalogProduct,
+  CatalogAuditLog,
+  CatalogActionType,
+  RenameProductPayload,
+  RenameProductResult,
+  CreateProductPayload,
+} from './domain/catalog/types';
+
+export {
+  sanitizeCatalogProductName,
+  validateCatalogProductName,
+} from './domain/catalog/validation';
+
 
