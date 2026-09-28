@@ -13,7 +13,7 @@ import {
   SupportTier,
   DEFAULT_SUPPORT_TIERS,
 } from '../infrastructure/supabase/configRepo';
-import { isSupabaseConfigured } from '../infrastructure/supabase/client';
+import { supabase, isSupabaseConfigured } from '../infrastructure/supabase/client';
 import { CLIENT_PRODUCTS, CASE_CLASSIFICATIONS } from '../domain/interaction/types';
 import {
   InstallerItem,
@@ -106,6 +106,30 @@ export const TaxonomyProvider: React.FC<TaxonomyProviderProps> = ({ children, us
   useEffect(() => {
     loadTaxonomies();
   }, [loadTaxonomies, userId]);
+
+  // Realtime subscription for catalog product changes with strict unmount teardown
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    let isMounted = true;
+    const channel = supabase
+      .channel('public:catalog_products:realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'catalog_products' },
+        () => {
+          if (isMounted) {
+            loadTaxonomies();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [loadTaxonomies]);
 
   const value = useMemo<TaxonomyContextValue>(
     () => ({
