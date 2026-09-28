@@ -107,9 +107,9 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Guard admin-dashboard from non-lead roles
+  // Guard admin tabs from non-lead roles
   React.useEffect(() => {
-    if (activeTab === 'admin-dashboard' && userRole !== 'team_lead') {
+    if (activeTab.startsWith('admin-') && userRole !== 'team_lead') {
       setActiveTab('shift-summary');
     }
   }, [activeTab, userRole]);
@@ -336,8 +336,8 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
               onUpdateClients={updateClients}
               onNavigateToSummary={() => setActiveTab('shift-summary')}
             />
-          ) : activeTab === 'admin-dashboard' && userRole === 'team_lead' ? (
-            /* Dedicated Admin Dashboard View (Team Leads only) */
+          ) : (activeTab === 'admin-product-catalog' || activeTab === 'admin-dashboard') && userRole === 'team_lead' ? (
+            /* Dedicated Product Catalog View (Team Leads only) */
             <AdminDashboard
               userRole={userRole}
               currentAgentName={currentAgentFullName || currentAgentName}
