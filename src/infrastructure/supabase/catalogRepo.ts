@@ -13,7 +13,10 @@ import {
   RenameProductResult,
   CreateProductPayload,
 } from '../../domain/catalog/types';
-import { sanitizeCatalogProductName } from '../../domain/catalog/validation';
+import {
+  sanitizeCatalogProductName,
+  validateCatalogProductName,
+} from '../../domain/catalog/validation';
 import { formatAgentDisplayName } from '../../domain/identity/policies';
 import { CLIENT_PRODUCTS } from '../../domain/interaction/types';
 import { supabase, isSupabaseConfigured, withNetworkRetry } from './client';
@@ -94,6 +97,11 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
       throw new Error('Both old and new product names are required.');
     }
 
+    const validation = validateCatalogProductName(newName);
+    if (!validation.isValid) {
+      throw new Error(validation.error || 'Invalid product name.');
+    }
+
     if (!this.isConfigured) {
       return {
         success: true,
@@ -166,6 +174,11 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
 
     if (!name) {
       throw new Error('Product name is required.');
+    }
+
+    const validation = validateCatalogProductName(name);
+    if (!validation.isValid) {
+      throw new Error(validation.error || 'Invalid product name.');
     }
 
     if (!this.isConfigured) {

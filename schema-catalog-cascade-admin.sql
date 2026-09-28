@@ -10,7 +10,45 @@
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
--- 1. CATALOG AUDIT LOG TABLE
+-- 1. CATALOG PRODUCTS MASTER TABLE
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.catalog_products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  category TEXT DEFAULT 'hardware',
+  is_active BOOLEAN DEFAULT true NOT NULL,
+  display_order INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_catalog_products_name ON public.catalog_products (name);
+CREATE INDEX IF NOT EXISTS idx_catalog_products_active_order ON public.catalog_products (is_active, display_order);
+
+-- Enable RLS
+ALTER TABLE public.catalog_products ENABLE ROW LEVEL SECURITY;
+
+-- Read policy: Allow authenticated users to view catalog products
+DROP POLICY IF EXISTS "Allow authenticated read to catalog_products" ON public.catalog_products;
+CREATE POLICY "Allow authenticated read to catalog_products" ON public.catalog_products
+  FOR SELECT TO authenticated USING (true);
+
+-- Write policies: Allow authenticated team members to insert/update/delete
+DROP POLICY IF EXISTS "Allow authenticated insert to catalog_products" ON public.catalog_products;
+CREATE POLICY "Allow authenticated insert to catalog_products" ON public.catalog_products
+  FOR INSERT TO authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow authenticated update to catalog_products" ON public.catalog_products;
+CREATE POLICY "Allow authenticated update to catalog_products" ON public.catalog_products
+  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow authenticated delete to catalog_products" ON public.catalog_products;
+CREATE POLICY "Allow authenticated delete to catalog_products" ON public.catalog_products
+  FOR DELETE TO authenticated USING (true);
+
+
+-- ------------------------------------------------------------------------------
+-- 2. CATALOG AUDIT LOG TABLE
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.catalog_audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -201,10 +239,11 @@ BEGIN
     );
   END IF;
 
-  -- 1. Find target product
+  -- 1. Find target product (with row-level lock to prevent concurrent rename race conditions)
   SELECT id INTO v_product_id
   FROM public.catalog_products
-  WHERE name = v_trimmed_old;
+  WHERE name = v_trimmed_old
+  FOR UPDATE;
 
   IF v_product_id IS NULL THEN
     RAISE EXCEPTION 'Product "%" was not found in catalog_products.', v_trimmed_old;
