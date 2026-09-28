@@ -1,13 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SupabaseCatalogRepository } from '../../../infrastructure/supabase/catalogRepo';
-import { supabase } from '../../../infrastructure/supabase/client';
 
 describe('SupabaseCatalogRepository', () => {
+  let mockSupabase: any;
   let repo: SupabaseCatalogRepository;
 
   beforeEach(() => {
     vi.restoreAllMocks();
-    repo = new SupabaseCatalogRepository();
+    mockSupabase = {
+      rpc: vi.fn(),
+      from: vi.fn(),
+    };
+    repo = new SupabaseCatalogRepository(mockSupabase, true);
   });
 
   it('rejects rename when old or new name is empty', async () => {
@@ -27,7 +31,8 @@ describe('SupabaseCatalogRepository', () => {
   });
 
   it('provides safe fallback products when offline / unconfigured', async () => {
-    const products = await repo.getProductsWithStats();
+    const unconfiguredRepo = new SupabaseCatalogRepository(mockSupabase, false);
+    const products = await unconfiguredRepo.getProductsWithStats();
     expect(Array.isArray(products)).toBe(true);
     expect(products.length).toBeGreaterThan(0);
     expect(products[0]).toHaveProperty('name');
@@ -35,7 +40,7 @@ describe('SupabaseCatalogRepository', () => {
   });
 
   it('successfully executes rename via RPC response', async () => {
-    const rpcSpy = vi.spyOn(supabase, 'rpc').mockResolvedValueOnce({
+    mockSupabase.rpc.mockResolvedValueOnce({
       data: {
         success: true,
         product_id: '123e4567-e89b-12d3-a456-426614174000',
@@ -47,7 +52,7 @@ describe('SupabaseCatalogRepository', () => {
         performed_by: 'Jane D.',
       },
       error: null,
-    } as any);
+    });
 
     const res = await repo.renameProduct({
       oldName: 'Old Model',
@@ -55,7 +60,7 @@ describe('SupabaseCatalogRepository', () => {
       agentName: 'Jane D.',
     });
 
-    expect(rpcSpy).toHaveBeenCalledWith('rename_catalog_product', {
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('rename_catalog_product', {
       p_old_name: 'Old Model',
       p_new_name: 'New Model',
       p_agent_name: 'Jane D.',
@@ -70,7 +75,7 @@ describe('SupabaseCatalogRepository', () => {
   });
 
   it('handles getAuditLogs gracefully', async () => {
-    const fromSpy = vi.spyOn(supabase, 'from').mockReturnValueOnce({
+    mockSupabase.from.mockReturnValueOnce({
       select: vi.fn().mockReturnValueOnce({
         order: vi.fn().mockReturnValueOnce({
           limit: vi.fn().mockResolvedValueOnce({
@@ -90,10 +95,10 @@ describe('SupabaseCatalogRepository', () => {
           }),
         }),
       }),
-    } as any);
+    });
 
     const logs = await repo.getAuditLogs(10);
-    expect(fromSpy).toHaveBeenCalledWith('catalog_audit_logs');
+    expect(mockSupabase.from).toHaveBeenCalledWith('catalog_audit_logs');
     expect(Array.isArray(logs)).toBe(true);
     expect(logs.length).toBe(1);
     expect(logs[0].action).toBe('rename');

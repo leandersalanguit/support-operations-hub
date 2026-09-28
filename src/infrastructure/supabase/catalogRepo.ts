@@ -20,11 +20,15 @@ import { supabase, isSupabaseConfigured, withNetworkRetry } from './client';
 import { generateUUID, isValidUUID } from '../../utils/uuid';
 
 export class SupabaseCatalogRepository implements ICatalogRepository {
+  constructor(
+    private client: any = supabase,
+    private isConfigured: boolean = isSupabaseConfigured
+  ) {}
   /**
    * Fetches all catalog products enriched with live CRM client counts and interaction usage counts.
    */
   async getProductsWithStats(): Promise<CatalogProduct[]> {
-    if (!isSupabaseConfigured) {
+    if (!this.isConfigured) {
       return CLIENT_PRODUCTS.map((name, idx) => ({
         id: `mock-product-${idx}`,
         name,
@@ -37,7 +41,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
 
     return await withNetworkRetry(async () => {
       // 1. Attempt to query via get_catalog_product_stats RPC
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_catalog_product_stats');
+      const { data: rpcData, error: rpcError } = await this.client.rpc('get_catalog_product_stats');
 
       if (!rpcError && Array.isArray(rpcData) && rpcData.length > 0) {
         return rpcData.map((d: any) => ({
@@ -51,7 +55,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
       }
 
       // 2. Fallback: Query catalog_products directly if RPC not yet deployed
-      const { data: tableData, error: tableError } = await supabase
+      const { data: tableData, error: tableError } = await this.client
         .from('catalog_products')
         .select('id, name, is_active, display_order')
         .order('display_order', { ascending: true })
@@ -90,7 +94,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
       throw new Error('Both old and new product names are required.');
     }
 
-    if (!isSupabaseConfigured) {
+    if (!this.isConfigured) {
       return {
         success: true,
         productId: generateUUID(),
@@ -104,7 +108,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
     }
 
     return await withNetworkRetry(async () => {
-      const { data, error } = await supabase.rpc('rename_catalog_product', {
+      const { data, error } = await this.client.rpc('rename_catalog_product', {
         p_old_name: oldName,
         p_new_name: newName,
         p_agent_name: agent,
@@ -114,7 +118,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
         // If RPC function not yet created in Supabase SQL editor, fallback to direct update
         if (error.code === 'PGRST202' || error.message?.includes('schema cache')) {
           console.warn('[catalogRepo] Notice: rename_catalog_product RPC not in schema cache, using direct update fallback.');
-          const { error: updateError } = await supabase
+          const { error: updateError } = await this.client
             .from('catalog_products')
             .update({ name: newName })
             .eq('name', oldName);
@@ -164,7 +168,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
       throw new Error('Product name is required.');
     }
 
-    if (!isSupabaseConfigured) {
+    if (!this.isConfigured) {
       return {
         id: generateUUID(),
         name,
@@ -177,7 +181,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
 
     return await withNetworkRetry(async () => {
       // 1. Insert product
-      const { data, error } = await supabase
+      const { data, error } = await this.client
         .from('catalog_products')
         .insert([
           {
@@ -196,7 +200,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
 
       // 2. Record audit log
       try {
-        await supabase.from('catalog_audit_logs').insert([
+        await this.client.from('catalog_audit_logs').insert([
           {
             catalog_type: 'product',
             action: 'create',
@@ -224,20 +228,20 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
    * Toggles product active state.
    */
   async toggleProductActive(id: string, isActive: boolean, agentName?: string): Promise<void> {
-    if (!isSupabaseConfigured) return;
+    if (!this.isConfigured) return;
 
     const agent = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
 
     await withNetworkRetry(async () => {
       // 1. Fetch current product name for audit
-      const { data: current } = await supabase
+      const { data: current } = await this.client
         .from('catalog_products')
         .select('name')
         .eq('id', id)
         .maybeSingle();
 
       // 2. Update status
-      const { error } = await supabase
+      const { error } = await this.client
         .from('catalog_products')
         .update({ is_active: isActive })
         .eq('id', id);
@@ -249,7 +253,7 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
 
       // 3. Log audit event
       try {
-        await supabase.from('catalog_audit_logs').insert([
+        await this.client.from('catalog_audit_logs').insert([
           {
             catalog_type: 'product',
             action: 'toggle_active',
@@ -269,10 +273,10 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
    * Fetches recent administrative catalog audit history logs.
    */
   async getAuditLogs(limit = 100): Promise<CatalogAuditLog[]> {
-    if (!isSupabaseConfigured) return [];
+    if (!this.isConfigured) return [];
 
     return await withNetworkRetry(async () => {
-      const { data, error } = await supabase
+      const { data, error } = await this.client
         .from('catalog_audit_logs')
         .select('*')
         .order('created_at', { ascending: false })
