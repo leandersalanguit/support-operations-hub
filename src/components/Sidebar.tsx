@@ -25,10 +25,13 @@ import {
   Moon,
   Users,
   ShieldCheck,
+  Package,
+  Tags,
 } from 'lucide-react';
 import { TabKey } from './WorkInProgress';
 import { AppLogo } from './AppLogo';
 import { useClickOutside } from './common';
+import { useExpandableNavGroup } from '../utils/navigation';
 
 interface SubmenuOption {
   key: TabKey;
@@ -45,6 +48,27 @@ const PRODUCT_LINKS_SUBITEMS: SubmenuOption[] = [
   { key: 'manuals', label: 'Manuals', icon: FileText },
   { key: 'renewal-links', label: 'Renewal Links', icon: RefreshCw, badge: 'WIP' },
 ];
+
+const ADMIN_DASHBOARD_SUBITEMS: SubmenuOption[] = [
+  { key: 'admin-product-catalog', label: 'Product Catalog', icon: Package },
+  { key: 'admin-case-classifications', label: 'Case Classifications', icon: Tags, badge: 'WIP' },
+  { key: 'admin-installers', label: 'Installers', icon: Download, badge: 'WIP' },
+  { key: 'admin-marketing-folders', label: 'Marketing Folders', icon: FolderOpen, badge: 'WIP' },
+  { key: 'admin-quick-start-guides', label: 'Quick Start Guides', icon: BookOpen, badge: 'WIP' },
+  { key: 'admin-recommended-hardware', label: 'Recommended Hardware', icon: Cpu, badge: 'WIP' },
+  { key: 'admin-manuals', label: 'Manuals', icon: FileText, badge: 'WIP' },
+  { key: 'admin-renewal-links', label: 'Renewal Links', icon: RefreshCw, badge: 'WIP' },
+];
+
+const PRODUCT_LINKS_KEYS = [
+  'product-links',
+  ...PRODUCT_LINKS_SUBITEMS.map((item) => item.key),
+] as const;
+
+const ADMIN_KEYS = [
+  'admin-dashboard',
+  ...ADMIN_DASHBOARD_SUBITEMS.map((item) => item.key),
+] as const;
 
 
 export interface SidebarProps {
@@ -86,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isDark = theme === 'dark';
   // Active flyout popover for collapsed sidebar sections
-  const [activeFlyout, setActiveFlyout] = useState<'product-links' | null>(null);
+  const [activeFlyout, setActiveFlyout] = useState<'product-links' | 'admin-dashboard' | null>(null);
   const flyoutContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Close flyout when collapsed state changes
@@ -101,19 +125,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
     closeOnEscape: true,
   });
 
-  // Always expand Product Links submenu if one of its sub-items is active
-  const isProductLinksActive =
-    activeTab === 'product-links' ||
-    PRODUCT_LINKS_SUBITEMS.some((item) => item.key === activeTab);
+  // Expandable Product Links group management
+  const {
+    isOpen: productLinksOpen,
+    toggleOpen: toggleProductLinksOpen,
+    isActive: isProductLinksActive,
+  } = useExpandableNavGroup({
+    initialOpen: true,
+    groupKeys: PRODUCT_LINKS_KEYS,
+    activeTab,
+    isCollapsed,
+  });
 
-  const [productLinksOpen, setProductLinksOpen] = useState<boolean>(true);
+  // Expandable Admin Dashboard group management (for Team Leads)
+  const {
+    isOpen: adminDashboardOpen,
+    toggleOpen: toggleAdminDashboardOpen,
+    isActive: isAdminDashboardActive,
+  } = useExpandableNavGroup({
+    initialOpen: true,
+    groupKeys: ADMIN_KEYS,
+    activeTab,
+    isCollapsed,
+  });
 
   const handleProductLinksHeaderClick = () => {
     if (isCollapsed) {
       setActiveFlyout((prev) => (prev === 'product-links' ? null : 'product-links'));
       return;
     }
-    setProductLinksOpen((prev) => !prev);
+    toggleProductLinksOpen();
+  };
+
+  const handleAdminDashboardHeaderClick = () => {
+    if (isCollapsed) {
+      setActiveFlyout((prev) => (prev === 'admin-dashboard' ? null : 'admin-dashboard'));
+      return;
+    }
+    toggleAdminDashboardOpen();
   };
 
   const handleItemClick = (tab: TabKey) => {
@@ -242,35 +291,150 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </button>
 
-          {/* Main Tab: Admin Dashboard (Visible strictly for Team Leads) */}
+          {/* Main Tab: Admin Dashboard (Expandable group, strictly for Team Leads) */}
           {userRole === 'team_lead' && (
-            <button
-              onClick={() => handleItemClick('admin-dashboard')}
-              title="Admin Dashboard"
-              className={`w-full flex items-center ${
-                isCollapsed ? 'justify-center px-0' : 'justify-between px-3'
-              } py-2.5 rounded-xl font-medium text-xs transition-all cursor-pointer group ${
-                activeTab === 'admin-dashboard'
-                  ? 'bg-gradient-to-r from-fotoblue-600 to-fotodeep-600 text-white shadow-xs font-semibold'
-                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
-              }`}
+            <div
+              className="pt-2 relative"
+              ref={activeFlyout === 'admin-dashboard' ? flyoutContainerRef : undefined}
             >
-              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 truncate'}`}>
-                <ShieldCheck
-                  className={`w-4.5 h-4.5 shrink-0 transition-transform group-hover:scale-110 ${
-                    activeTab === 'admin-dashboard'
-                      ? 'text-white'
-                      : 'text-fotoblue-600 dark:text-fotoblue-400'
-                  }`}
-                />
-                {!isCollapsed && <span className="truncate">Admin Dashboard</span>}
-              </div>
-              {!isCollapsed && (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider bg-fotoblue-100/70 text-fotoblue-700 dark:bg-fotoblue-950/70 dark:text-fotoblue-300 border border-fotoblue-200/50 dark:border-fotoblue-800/50">
-                  Lead
-                </span>
+              <button
+                onClick={handleAdminDashboardHeaderClick}
+                title="Admin Dashboard"
+                aria-haspopup="menu"
+                aria-expanded={isCollapsed ? activeFlyout === 'admin-dashboard' : adminDashboardOpen}
+                className={`w-full flex items-center ${
+                  isCollapsed ? 'justify-center px-0' : 'justify-between px-3'
+                } py-2.5 rounded-xl font-medium text-xs transition-all cursor-pointer group ${
+                  (isAdminDashboardActive && (!adminDashboardOpen || isCollapsed)) || (isCollapsed && activeFlyout === 'admin-dashboard')
+                    ? 'bg-fotoblue-50 dark:bg-fotoblue-950/60 text-fotoblue-800 dark:text-fotoblue-300 font-semibold ring-1 ring-fotoblue-500/20'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 truncate'}`}>
+                  <ShieldCheck
+                    className="w-4.5 h-4.5 shrink-0 transition-transform group-hover:scale-110 text-fotoblue-600 dark:text-fotoblue-400"
+                  />
+                  {!isCollapsed && (
+                    <span className="truncate">Admin Dashboard</span>
+                  )}
+                </div>
+
+                {!isCollapsed && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider bg-fotoblue-100/70 text-fotoblue-700 dark:bg-fotoblue-950/70 dark:text-fotoblue-300 border border-fotoblue-200/50 dark:border-fotoblue-800/50">
+                      Lead
+                    </span>
+                    {adminDashboardOpen ? (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                    )}
+                  </div>
+                )}
+              </button>
+
+              {/* Collapsed Flyout Popover Menu for Admin Dashboard */}
+              {isCollapsed && activeFlyout === 'admin-dashboard' && (
+                <div
+                  className="absolute left-full top-0 ml-2.5 z-50 w-64 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xl p-2 animate-fadeIn"
+                  role="menu"
+                  aria-label="Admin Dashboard Subsections"
+                >
+                  <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                      <ShieldCheck className="w-3.5 h-3.5 text-fotoblue-600 dark:text-fotoblue-400" />
+                      Admin Dashboard
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                      {ADMIN_DASHBOARD_SUBITEMS.length} items
+                    </span>
+                  </div>
+                  <div className="space-y-0.5">
+                    {ADMIN_DASHBOARD_SUBITEMS.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.key;
+                      return (
+                        <button
+                          key={item.key}
+                          onClick={() => handleItemClick(item.key)}
+                          role="menuitem"
+                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-xl text-xs font-medium transition-all text-left cursor-pointer group ${
+                            isActive
+                              ? 'bg-fotoblue-500 text-white font-semibold shadow-2xs'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/70 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <Icon
+                              className={`w-3.5 h-3.5 shrink-0 ${
+                                isActive
+                                  ? 'text-white'
+                                  : 'text-fotoblue-600 dark:text-fotoblue-400'
+                              }`}
+                            />
+                            <span className="truncate leading-tight">{item.label}</span>
+                          </div>
+                          {item.badge && (
+                            <span
+                              className={`text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap ${
+                                isActive
+                                  ? 'bg-white/20 text-white'
+                                  : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-            </button>
+
+              {/* Submenu items for Admin Dashboard (Expanded sidebar mode) */}
+              {adminDashboardOpen && !isCollapsed && (
+                <div className="mt-1 pl-4 pr-1 space-y-1 relative before:absolute before:left-5 before:top-1 before:bottom-1 before:w-px before:bg-slate-200 dark:before:bg-slate-800">
+                  {ADMIN_DASHBOARD_SUBITEMS.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => handleItemClick(item.key)}
+                        className={`w-full flex items-start justify-between gap-2 pl-3.5 pr-2.5 py-2 rounded-lg font-medium text-xs transition-all cursor-pointer text-left group ${
+                          isActive
+                            ? 'bg-fotoblue-500 text-white font-semibold shadow-2xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <Icon
+                            className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                              isActive
+                                ? 'text-white'
+                                : 'text-fotoblue-600 dark:text-fotoblue-400'
+                            }`}
+                          />
+                          <span className="leading-snug break-words flex-1">{item.label}</span>
+                        </div>
+                        {item.badge && (
+                          <span
+                            className={`text-[9px] font-medium px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap self-start mt-0.5 ${
+                              isActive
+                                ? 'bg-white/20 text-white'
+                                : 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/60'
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Main Tab 2: Product Links (Expandable parent group) */}

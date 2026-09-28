@@ -22,6 +22,7 @@ import {
   Cloud,
   ArrowUpCircle,
   Layers,
+  Tags,
 } from 'lucide-react';
 
 export type TabKey =
@@ -39,7 +40,15 @@ export type TabKey =
   | 'cloud-orders'
   | 'software-upgrades'
   | 'components-info'
-  | 'admin-dashboard';
+  | 'admin-dashboard'
+  | 'admin-product-catalog'
+  | 'admin-case-classifications'
+  | 'admin-installers'
+  | 'admin-marketing-folders'
+  | 'admin-quick-start-guides'
+  | 'admin-recommended-hardware'
+  | 'admin-manuals'
+  | 'admin-renewal-links';
 
 interface WorkInProgressProps {
   activeTab: TabKey;
@@ -56,7 +65,7 @@ interface TabMeta {
   isEmpty?: boolean;
 }
 
-const TAB_METADATA: Record<Exclude<TabKey, 'shift-summary' | 'client-directory' | 'admin-dashboard'>, TabMeta> = {
+const TAB_METADATA: Record<Exclude<TabKey, 'shift-summary' | 'client-directory' | 'admin-dashboard' | 'admin-product-catalog'>, TabMeta> = {
   'product-links': {
     title: 'Product Links Hub',
     category: 'Product Links',
@@ -151,6 +160,62 @@ const TAB_METADATA: Record<Exclude<TabKey, 'shift-summary' | 'client-directory' 
     description:
       'Hardware components inventory, parts compatibility, and manufacturer specifications on Monday.com.',
     icon: Layers,
+    plannedBadge: 'In Development',
+  },
+  'admin-case-classifications': {
+    title: 'Case Classifications Management',
+    category: 'Admin Dashboard',
+    description:
+      'Configure support case classifications, tag hierarchies, and resolution category defaults.',
+    icon: Tags,
+    plannedBadge: 'In Development',
+  },
+  'admin-installers': {
+    title: 'Product Installers Management',
+    category: 'Admin Dashboard',
+    description:
+      'Upload, update, and manage official software installers and release version download links.',
+    icon: Download,
+    plannedBadge: 'In Development',
+  },
+  'admin-marketing-folders': {
+    title: 'Marketing Folders Management',
+    category: 'Admin Dashboard',
+    description:
+      'Configure Google Drive URLs, marketing media asset folders, and promotional resources.',
+    icon: FolderOpen,
+    plannedBadge: 'In Development',
+  },
+  'admin-quick-start-guides': {
+    title: 'Quick Start Guides Management',
+    category: 'Admin Dashboard',
+    description:
+      'Manage equipment setup checklists, operator configuration steps, and quick start guides.',
+    icon: BookOpen,
+    plannedBadge: 'In Development',
+  },
+  'admin-recommended-hardware': {
+    title: 'Recommended Hardware Management',
+    category: 'Admin Dashboard',
+    description:
+      'Configure approved computer specifications, verified cameras, flash strobes, and certified printers.',
+    icon: Cpu,
+    plannedBadge: 'In Development',
+  },
+  'admin-manuals': {
+    title: 'Product Manuals Management',
+    category: 'Admin Dashboard',
+    description:
+      'Manage technical documentation, hardware wiring diagrams, and product operating manuals.',
+    icon: FileText,
+    plannedBadge: 'In Development',
+  },
+  'admin-renewal-links': {
+    title: 'Renewal Links Management',
+    category: 'Admin Dashboard',
+    description:
+      'Configure software renewal URLs, license extension portals, and commercial upgrade pricing.',
+    icon: RefreshCw,
     plannedBadge: 'In Development',
   },
 };
