@@ -19,3 +19,7 @@ export * from './identity/policies';
 
 export * from './stats/types';
 export * from './stats/calculator';
+
+export * from './catalog/types';
+export * from './catalog/repository';
+export * from './catalog/validation';
