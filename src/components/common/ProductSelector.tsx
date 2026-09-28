@@ -44,6 +44,12 @@ export const ProductSelector: React.FC<ProductSelectorProps> = React.memo(({
     return Boolean(value && clientOwnedProducts.includes(value));
   }, [value, clientOwnedProducts]);
 
+  // Check if current value exists in either clientOwnedProducts or general products
+  const isValueInCatalog = useMemo(() => {
+    if (!value) return true;
+    return products.includes(value) || clientOwnedProducts.includes(value);
+  }, [value, products, clientOwnedProducts]);
+
   return (
     <div className="relative">
       <div className="flex items-center justify-between mb-1.5">
@@ -88,6 +94,16 @@ export const ProductSelector: React.FC<ProductSelectorProps> = React.memo(({
           <option value="" disabled className="bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500">
             -- Select Product --
           </option>
+
+          {/* Defensive fallback: preserve unlisted/archived product value without resetting select */}
+          {!isValueInCatalog && value && (
+            <option
+              value={value}
+              className="bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 font-semibold"
+            >
+              ⚠️ {value} (Archived / Unlisted)
+            </option>
+          )}
           {clientOwnedProducts.length > 0 ? (
             <>
               <optgroup

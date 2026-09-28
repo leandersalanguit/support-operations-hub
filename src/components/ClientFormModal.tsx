@@ -4,7 +4,7 @@
  * Manages client name, multiple phone numbers, and associated product ownership.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Users, AlertCircle, X, Check, Info } from 'lucide-react';
 import { ClientRecord } from '../types';
 import { useTaxonomies } from '../application';
@@ -50,6 +50,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showDefaultCountryCodeNotice, setShowDefaultCountryCodeNotice] = useState(false);
+
+  // Compute legacy / unlisted products currently assigned to this client
+  const unlistedClientProducts = useMemo(() => {
+    const catalogSet = new Set(catalogProducts);
+    return products.filter((p) => p && !catalogSet.has(p));
+  }, [products, catalogProducts]);
 
   // Sync state on open / client change
   useEffect(() => {
@@ -363,6 +369,37 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 );
               })}
             </div>
+
+            {/* Legacy / Unlisted Equipment Section */}
+            {unlistedClientProducts.length > 0 && (
+              <div className="mt-3 p-3 rounded-xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 space-y-2">
+                <div className="flex items-center justify-between text-xs font-bold text-amber-800 dark:text-amber-300">
+                  <span>Legacy / Unlisted Equipment ({unlistedClientProducts.length})</span>
+                  <span className="text-[10px] font-medium text-amber-700/80 dark:text-amber-400">
+                    Archived from catalog
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {unlistedClientProducts.map((prod) => (
+                    <button
+                      key={prod}
+                      type="button"
+                      onClick={() => handleToggleProduct(prod)}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all text-left cursor-pointer border bg-amber-100/60 dark:bg-amber-900/40 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold"
+                      title="Click to remove legacy product from this client"
+                    >
+                      <div className="w-3.5 h-3.5 rounded border border-amber-500 bg-amber-600 text-white flex items-center justify-center shrink-0">
+                        <Check className="w-2.5 h-2.5" />
+                      </div>
+                      <span className="truncate">{prod}</span>
+                      <span className="text-[9px] font-normal text-amber-700 dark:text-amber-400 ml-auto shrink-0">
+                        (Legacy)
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </ModalBody>
 

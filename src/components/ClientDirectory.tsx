@@ -80,6 +80,27 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
     });
   }, [clients, searchQuery, productFilter]);
 
+  // Union active catalog products with any legacy unlisted products owned by clients
+  const allFilterProducts = useMemo(() => {
+    const catalogSet = new Set(catalogProducts);
+    const unlisted = new Set<string>();
+    for (const c of clients) {
+      if (Array.isArray(c.ownedProducts)) {
+        for (const p of c.ownedProducts) {
+          if (p && !catalogSet.has(p)) {
+            unlisted.add(p);
+          }
+        }
+      }
+    }
+    const result: Array<{ name: string; isLegacy?: boolean }> = catalogProducts.map((name) => ({ name }));
+    const sortedUnlisted = Array.from(unlisted).sort((a, b) => a.localeCompare(b));
+    for (const name of sortedUnlisted) {
+      result.push({ name, isLegacy: true });
+    }
+    return result;
+  }, [catalogProducts, clients]);
+
   // Aggregate stats
   const totalProductsCount = useMemo(() => {
     return clients.reduce((acc, c) => acc + (c.ownedProducts?.length || 0), 0);
@@ -198,11 +219,11 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
             className="w-full pl-9 pr-8 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-fotoblue-500 shadow-2xs cursor-pointer"
           >
             <option value="All">All Products ({clients.length})</option>
-            {catalogProducts.map((prod) => {
-              const count = clients.filter((c) => c.ownedProducts?.includes(prod)).length;
+            {allFilterProducts.map(({ name, isLegacy }) => {
+              const count = clients.filter((c) => c.ownedProducts?.includes(name)).length;
               return (
-                <option key={prod} value={prod}>
-                  {prod} {count > 0 ? `(${count})` : ''}
+                <option key={name} value={name}>
+                  {name} {isLegacy ? '(Legacy)' : ''} {count > 0 ? `(${count})` : ''}
                 </option>
               );
             })}
