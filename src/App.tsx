@@ -24,6 +24,7 @@ import { RecommendedHardwareDirectory } from './components/RecommendedHardwareDi
 import { ManualsDirectory } from './components/ManualsDirectory';
 import { QuickStartGuidesDirectory } from './components/QuickStartGuidesDirectory';
 import { ClientDirectory } from './components/ClientDirectory';
+import { AdminDashboard } from './components/admin';
 import { StatsCards } from './components/StatsCards';
 import { InteractionForm } from './components/InteractionForm';
 import { InteractionTable } from './components/InteractionTable';
@@ -105,6 +106,13 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Guard admin-dashboard from non-lead roles
+  React.useEffect(() => {
+    if (activeTab === 'admin-dashboard' && userRole !== 'team_lead') {
+      setActiveTab('shift-summary');
+    }
+  }, [activeTab, userRole]);
 
   // Surface sync errors into error banner if any
   const effectiveError = errorMessage || sync.syncErrorMessage;
@@ -327,6 +335,14 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
               currentAgentName={currentAgentName}
               onUpdateClients={updateClients}
               onNavigateToSummary={() => setActiveTab('shift-summary')}
+            />
+          ) : activeTab === 'admin-dashboard' && userRole === 'team_lead' ? (
+            /* Dedicated Admin Dashboard View (Team Leads only) */
+            <AdminDashboard
+              userRole={userRole}
+              currentAgentName={currentAgentFullName || currentAgentName}
+              onNavigateToSummary={() => setActiveTab('shift-summary')}
+              onTaxonomiesChanged={taxonomies.refreshTaxonomies}
             />
           ) : activeTab === 'marketing-folders' ? (
             /* Dedicated Marketing Folders Directory */

@@ -24,6 +24,7 @@ import {
   Sun,
   Moon,
   Users,
+  ShieldCheck,
 } from 'lucide-react';
 import { TabKey } from './WorkInProgress';
 import { AppLogo } from './AppLogo';
@@ -240,6 +241,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {!isCollapsed && <span className="truncate">Client Directory</span>}
             </div>
           </button>
+
+          {/* Main Tab: Admin Dashboard (Visible strictly for Team Leads) */}
+          {userRole === 'team_lead' && (
+            <button
+              onClick={() => handleItemClick('admin-dashboard')}
+              title="Admin Dashboard"
+              className={`w-full flex items-center ${
+                isCollapsed ? 'justify-center px-0' : 'justify-between px-3'
+              } py-2.5 rounded-xl font-medium text-xs transition-all cursor-pointer group ${
+                activeTab === 'admin-dashboard'
+                  ? 'bg-gradient-to-r from-fotoblue-600 to-fotodeep-600 text-white shadow-xs font-semibold'
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-slate-800/80 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 truncate'}`}>
+                <ShieldCheck
+                  className={`w-4.5 h-4.5 shrink-0 transition-transform group-hover:scale-110 ${
+                    activeTab === 'admin-dashboard'
+                      ? 'text-white'
+                      : 'text-fotoblue-600 dark:text-fotoblue-400'
+                  }`}
+                />
+                {!isCollapsed && <span className="truncate">Admin Dashboard</span>}
+              </div>
+              {!isCollapsed && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider bg-fotoblue-100/70 text-fotoblue-700 dark:bg-fotoblue-950/70 dark:text-fotoblue-300 border border-fotoblue-200/50 dark:border-fotoblue-800/50">
+                  Lead
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Main Tab 2: Product Links (Expandable parent group) */}
           <div

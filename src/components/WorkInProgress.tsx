@@ -38,7 +38,8 @@ export type TabKey =
   | 'production-videos'
   | 'cloud-orders'
   | 'software-upgrades'
-  | 'components-info';
+  | 'components-info'
+  | 'admin-dashboard';
 
 interface WorkInProgressProps {
   activeTab: TabKey;
@@ -55,7 +56,7 @@ interface TabMeta {
   isEmpty?: boolean;
 }
 
-const TAB_METADATA: Record<Exclude<TabKey, 'shift-summary' | 'client-directory'>, TabMeta> = {
+const TAB_METADATA: Record<Exclude<TabKey, 'shift-summary' | 'client-directory' | 'admin-dashboard'>, TabMeta> = {
   'product-links': {
     title: 'Product Links Hub',
     category: 'Product Links',
