@@ -71,15 +71,20 @@ CREATE INDEX IF NOT EXISTS idx_catalog_audit_action
 -- Enable RLS
 ALTER TABLE public.catalog_audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Allow authenticated users to view audit logs
-DROP POLICY IF EXISTS "Allow authenticated read to catalog_audit_logs" ON public.catalog_audit_logs;
-CREATE POLICY "Allow authenticated read to catalog_audit_logs" ON public.catalog_audit_logs
-  FOR SELECT TO authenticated USING (true);
+-- Grant table permissions to anon and authenticated
+GRANT SELECT, INSERT ON public.catalog_audit_logs TO anon, authenticated;
 
--- Allow authenticated users to insert audit records
+-- Allow users to view audit logs
+DROP POLICY IF EXISTS "Allow authenticated read to catalog_audit_logs" ON public.catalog_audit_logs;
+DROP POLICY IF EXISTS "Allow read to catalog_audit_logs" ON public.catalog_audit_logs;
+CREATE POLICY "Allow read to catalog_audit_logs" ON public.catalog_audit_logs
+  FOR SELECT TO anon, authenticated USING (true);
+
+-- Allow inserting audit records (immutable audit trail; no UPDATE or DELETE granted/allowed)
 DROP POLICY IF EXISTS "Allow authenticated insert to catalog_audit_logs" ON public.catalog_audit_logs;
-CREATE POLICY "Allow authenticated insert to catalog_audit_logs" ON public.catalog_audit_logs
-  FOR INSERT TO authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow insert to catalog_audit_logs" ON public.catalog_audit_logs;
+CREATE POLICY "Allow insert to catalog_audit_logs" ON public.catalog_audit_logs
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
 
 
 -- ------------------------------------------------------------------------------
@@ -345,6 +350,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Grant execution to authenticated users
-GRANT EXECUTE ON FUNCTION public.rename_catalog_product(TEXT, TEXT, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_catalog_product_stats() TO authenticated;
+-- Grant execution to authenticated and anon users
+GRANT EXECUTE ON FUNCTION public.rename_catalog_product(TEXT, TEXT, TEXT) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.get_catalog_product_stats() TO authenticated, anon;

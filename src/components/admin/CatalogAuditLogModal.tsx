@@ -16,7 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { CatalogAuditLog } from '../../domain/catalog/types';
-import { formatDateDisplay, formatTimeDisplay } from '../../utils/date';
+import { formatTimeDisplay } from '../../utils/date';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '../common/Modal';
 
 export interface CatalogAuditLogModalProps {
@@ -198,8 +198,14 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredLogs.map((log) => {
                     const rawDate = log.createdAt ? new Date(log.createdAt) : null;
-                    const dateStr = rawDate ? formatDateDisplay(rawDate.toISOString().slice(0, 10)) : '—';
-                    const timeStr = rawDate ? formatTimeDisplay(rawDate.toTimeString().slice(0, 5)) : '—';
+                    const dateStr = rawDate
+                      ? rawDate.toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                      : '—';
+                    const timeStr = log.createdAt ? formatTimeDisplay(log.createdAt) : '—';
 
                     return (
                       <tr
