@@ -154,6 +154,53 @@ export class ResourceAdminRepository {
   }
 
   /**
+   * Renames a resource entry and appends an audit log record into catalog_audit_logs.
+   */
+  async renameItem(
+    config: AdminResourceConfig,
+    id: string,
+    oldName: string,
+    newName: string,
+    agentName: string
+  ): Promise<void> {
+    const actor = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
+
+    if (!isSupabaseConfigured) return;
+
+    await withNetworkRetry(async () => {
+      // 1. Update name in target table
+      const { error } = await supabase
+        .from(config.tableName)
+        .update({ name: newName })
+        .eq('id', id);
+
+      if (error) {
+        console.error(`[resourceAdminRepo] Error renaming in ${config.tableName}:`, error);
+        throw new Error(error.message);
+      }
+
+      // 2. Append audit log entry
+      try {
+        await supabase.from('catalog_audit_logs').insert([
+          {
+            catalog_type: config.catalogType,
+            action: 'rename',
+            old_value: oldName,
+            new_value: newName,
+            performed_by: actor,
+            details: {
+              id,
+              tableName: config.tableName,
+            },
+          },
+        ]);
+      } catch (auditErr: any) {
+        console.warn(`[resourceAdminRepo] Notice appending audit log for ${config.tableName}:`, auditErr?.message);
+      }
+    });
+  }
+
+  /**
    * Fetches audit history records for this resource or all resources from catalog_audit_logs.
    */
   async getAuditLogs(catalogType?: string, limit = 100): Promise<CatalogAuditLog[]> {
