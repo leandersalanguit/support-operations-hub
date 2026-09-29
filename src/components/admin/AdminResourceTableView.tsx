@@ -2,7 +2,7 @@
  * @file AdminResourceTableView.tsx
  * @description Standardized administrative management table view for support operations catalogs
  * (Case Classifications, Installers, Marketing Folders, Quick Start Guides, Recommended Hardware, Manuals).
- * Features live Supabase sync, active/inactive status toggling, audit history, and schema-driven entry creation.
+ * Features live Supabase sync, in-place item renaming, status toggling, audit history, and schema-driven entry creation.
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -11,9 +11,7 @@ import {
   Plus,
   History,
   RefreshCw,
-  ExternalLink,
   ToggleLeft,
-  ToggleRight,
   AlertCircle,
   Loader2,
   CheckCircle2,
@@ -23,7 +21,9 @@ import { AdminResourceConfig } from '../../utils/adminResourceConfig';
 import { resourceAdminRepo } from '../../infrastructure/supabase/resourceAdminRepo';
 import { GenericResourceAddModal } from './GenericResourceAddModal';
 import { CatalogAuditLogModal } from './CatalogAuditLogModal';
+import { RenameResourceModal } from './RenameResourceModal';
 import { ConfirmModal } from '../common/ConfirmModal';
+import { AdminResourceTableRow } from './AdminResourceTableRow';
 import { CatalogAuditLog } from '../../domain/catalog/types';
 
 export interface AdminResourceTableViewProps {
@@ -48,6 +48,7 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
+  const [itemToRename, setItemToRename] = useState<any | null>(null);
   const [itemToToggle, setItemToToggle] = useState<any | null>(null);
   const [isTogglingStatus, setIsTogglingStatus] = useState<boolean>(false);
 
@@ -105,6 +106,23 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
   const handleAddItem = async (values: Record<string, any>) => {
     const actor = currentAgentName || 'Team Lead';
     await resourceAdminRepo.createItem(config, values, actor);
+    await loadItems();
+
+    if (onTaxonomiesChanged) {
+      try {
+        await onTaxonomiesChanged();
+      } catch (e) {
+        console.warn('[AdminResourceTableView] Warning refreshing taxonomies:', e);
+      }
+    }
+  };
+
+  /**
+   * Handles renaming a resource entry
+   */
+  const handleRenameItem = async (id: string, oldName: string, newName: string) => {
+    const actor = currentAgentName || 'Team Lead';
+    await resourceAdminRepo.renameItem(config, id, oldName, newName, actor);
     await loadItems();
 
     if (onTaxonomiesChanged) {
@@ -294,6 +312,7 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={config.searchPlaceholder}
+              aria-label={config.searchPlaceholder}
               className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-fotoblue-500/20 focus:bg-white dark:focus:bg-slate-900 transition-all"
             />
           </div>
@@ -340,6 +359,7 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
               onClick={loadItems}
               disabled={isLoading}
               title="Refresh catalog"
+              aria-label="Refresh catalog"
               className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -349,12 +369,12 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
 
         {/* Table Body */}
         {isLoading && items.length === 0 ? (
-          <div className="py-16 flex flex-col items-center justify-center text-slate-400">
+          <div role="status" aria-busy="true" className="py-16 flex flex-col items-center justify-center text-slate-400">
             <Loader2 className="w-7 h-7 animate-spin text-fotoblue-500 mb-2" />
             <p className="text-xs font-medium">Loading {config.title.toLowerCase()}...</p>
           </div>
         ) : filteredItems.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 dark:text-slate-500">
+          <div role="status" className="py-16 text-center text-slate-400 dark:text-slate-500">
             <Icon className="w-9 h-9 mx-auto mb-2 opacity-50 text-fotoblue-500" />
             <p className="text-sm font-semibold">No {config.title.toLowerCase()} found.</p>
             <p className="text-xs mt-1">
@@ -365,147 +385,29 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table aria-label={`${config.title} Table`} className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <th className="py-3 px-4">Name / Title</th>
+                  <th scope="col" className="py-3 px-4">Name / Title</th>
                   {config.tableName !== 'case_classifications' && (
-                    <th className="py-3 px-4">Link / Resource</th>
+                    <th scope="col" className="py-3 px-4">Link / Resource</th>
                   )}
-                  <th className="py-3 px-4">Category / Tags</th>
-                  <th className="py-3 px-4">Details</th>
-                  <th className="py-3 px-4 text-center">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th scope="col" className="py-3 px-4">Category / Tags</th>
+                  <th scope="col" className="py-3 px-4">Details</th>
+                  <th scope="col" className="py-3 px-4 text-center">Status</th>
+                  <th scope="col" className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredItems.map((item) => {
-                  const categories = Array.isArray(item.categories)
-                    ? item.categories
-                    : item.category
-                    ? [item.category]
-                    : [];
-
-                  return (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                    >
-                      {/* Name / Title */}
-                      <td className="py-3.5 px-4 font-semibold text-slate-900 dark:text-white">
-                        <div className="flex items-center gap-2">
-                          <span>{item.name}</span>
-                          {item.version && (
-                            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-fotoblue-50 dark:bg-fotoblue-950/80 text-fotoblue-700 dark:text-fotoblue-300 border border-fotoblue-200 dark:border-fotoblue-800">
-                              {item.version}
-                            </span>
-                          )}
-                        </div>
-                        {item.description && (
-                          <p className="text-[11px] font-normal text-slate-400 dark:text-slate-500 truncate max-w-sm mt-0.5">
-                            {item.description}
-                          </p>
-                        )}
-                      </td>
-
-                      {/* Link (if applicable) */}
-                      {config.tableName !== 'case_classifications' && (
-                        <td className="py-3.5 px-4">
-                          {item.url ? (
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="inline-flex items-center gap-1 text-fotoblue-600 dark:text-fotoblue-400 hover:underline max-w-[200px] truncate"
-                              title={item.url}
-                            >
-                              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                              <span className="truncate">Open Link</span>
-                            </a>
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </td>
-                      )}
-
-                      {/* Category / Tags */}
-                      <td className="py-3.5 px-4">
-                        <div className="flex flex-wrap gap-1 max-w-xs">
-                          {categories.length > 0 ? (
-                            categories.map((cat: string) => (
-                              <span
-                                key={cat}
-                                className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
-                              >
-                                {cat}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-slate-400">—</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Details / Metadata */}
-                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400 text-[11px]">
-                        {item.operating_system && <div>OS: {item.operating_system}</div>}
-                        {item.file_size && <div>Size: {item.file_size}</div>}
-                        {item.format && <div>Format: {item.format}</div>}
-                        {item.difficulty && <div>Difficulty: {item.difficulty}</div>}
-                        {item.estimated_time && <div>Est: {item.estimated_time}</div>}
-                        {item.status && <div>Status: {item.status}</div>}
-                        {item.model_number && <div>Model: {item.model_number}</div>}
-                        {item.estimated_price && <div>Price: {item.estimated_price}</div>}
-                        {!item.operating_system &&
-                          !item.file_size &&
-                          !item.format &&
-                          !item.difficulty &&
-                          !item.status &&
-                          !item.model_number && (
-                            <span className="text-slate-400">—</span>
-                          )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            item.is_active
-                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              item.is_active ? 'bg-emerald-500' : 'bg-slate-400'
-                            }`}
-                          />
-                          {item.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setItemToToggle(item)}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                            item.is_active
-                              ? 'border-slate-200 dark:border-slate-700 text-slate-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30'
-                              : 'border-emerald-200 dark:border-emerald-800 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                          }`}
-                          title={item.is_active ? 'Deactivate entry' : 'Activate entry'}
-                        >
-                          {item.is_active ? (
-                            <ToggleRight className="w-4 h-4 text-emerald-600" />
-                          ) : (
-                            <ToggleLeft className="w-4 h-4 text-slate-400" />
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {filteredItems.map((item) => (
+                  <AdminResourceTableRow
+                    key={item.id}
+                    item={item}
+                    config={config}
+                    onToggleStatus={setItemToToggle}
+                    onRename={setItemToRename}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
@@ -518,6 +420,15 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
         onClose={() => setIsAddModalOpen(false)}
         config={config}
         onAdd={handleAddItem}
+      />
+
+      {/* Rename Resource Modal */}
+      <RenameResourceModal
+        isOpen={!!itemToRename}
+        onClose={() => setItemToRename(null)}
+        config={config}
+        item={itemToRename}
+        onRename={handleRenameItem}
       />
 
       {/* Audit History Modal (Strictly Read-Only: No edit or delete buttons) */}
