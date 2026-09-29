@@ -9,3 +9,5 @@ export * from './AddProductModal';
 export * from './CatalogAuditLogModal';
 export * from './GenericResourceAddModal';
 export * from './AdminResourceTableView';
+export * from './AdminProductCatalogView';
+
