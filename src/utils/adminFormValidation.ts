@@ -26,6 +26,25 @@ export function isValidHttpUrl(urlCandidate: string): boolean {
 }
 
 /**
+ * Sanitizes external URLs before rendering in href attributes.
+ * Rejects non-HTTP(S) protocols like javascript: or data: to prevent XSS.
+ * Returns '#' if the URL is invalid, empty, or uses an unsafe protocol.
+ */
+export function sanitizeExternalUrl(urlCandidate?: string | null): string {
+  if (!urlCandidate || typeof urlCandidate !== 'string') return '#';
+  const trimmed = urlCandidate.trim();
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return trimmed;
+    }
+  } catch {
+    // Return fallback for invalid URL strings
+  }
+  return '#';
+}
+
+/**
  * Validates resource form values against its schema configuration.
  * Adheres strictly to minimal required field rules (Name & Link) while allowing
  * all other fields to remain optional.

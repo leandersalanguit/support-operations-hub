@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isValidHttpUrl,
+  sanitizeExternalUrl,
   validateResourcePayload,
   sanitizeResourcePayload,
 } from '../adminFormValidation';
@@ -19,6 +20,26 @@ describe('adminFormValidation utilities', () => {
       expect(isValidHttpUrl('just a string')).toBe(false);
       expect(isValidHttpUrl('ftp://ftp.example.com')).toBe(false);
       expect(isValidHttpUrl('javascript:alert(1)')).toBe(false);
+    });
+  });
+
+  describe('sanitizeExternalUrl', () => {
+    it('returns valid https and http URLs unchanged', () => {
+      expect(sanitizeExternalUrl('https://fotomoto.ph/manual.pdf')).toBe('https://fotomoto.ph/manual.pdf');
+      expect(sanitizeExternalUrl('http://insecure.site/test')).toBe('http://insecure.site/test');
+    });
+
+    it('sanitizes and rejects dangerous javascript and data URIs with fallback #', () => {
+      expect(sanitizeExternalUrl('javascript:alert(document.cookie)')).toBe('#');
+      expect(sanitizeExternalUrl('data:text/html,<script>alert(1)</script>')).toBe('#');
+      expect(sanitizeExternalUrl('vbscript:msgbox(1)')).toBe('#');
+    });
+
+    it('returns fallback # for null, undefined, or empty strings', () => {
+      expect(sanitizeExternalUrl(null)).toBe('#');
+      expect(sanitizeExternalUrl(undefined)).toBe('#');
+      expect(sanitizeExternalUrl('')).toBe('#');
+      expect(sanitizeExternalUrl('   ')).toBe('#');
     });
   });
 
