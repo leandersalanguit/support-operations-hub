@@ -14,11 +14,6 @@ import {
   Cpu,
   FileText,
 } from 'lucide-react';
-import { INSTALLER_CATEGORIES } from '../data/installers';
-import { MARKETING_CATEGORIES } from '../data/marketingFolders';
-import { QUICK_START_CATEGORIES } from '../data/quickStartGuides';
-import { HARDWARE_CATEGORIES } from '../data/recommendedHardware';
-import { MANUAL_CATEGORIES } from '../data/manuals';
 
 export type AdminResourceKey =
   | 'admin-case-classifications'
@@ -50,6 +45,9 @@ export interface AdminResourceConfig {
   searchPlaceholder: string;
   categoryOptions: string[];
   fields: ResourceFieldDefinition[];
+  hasDetailsColumn?: boolean;
+  hasTagsColumn?: boolean;
+  firstColumnLabel?: string;
   columns: {
     key: string;
     label: string;
@@ -66,29 +64,22 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     singular: 'Classification',
     description: 'System-wide support inquiry and interaction case classifications for incident categorization.',
     icon: Tags,
-    searchPlaceholder: 'Search classifications or categories...',
-    categoryOptions: ['General', 'Hardware', 'Software', 'Billing', 'Account Access', 'Licensing'],
+    searchPlaceholder: 'Search classifications...',
+    categoryOptions: [],
+    hasDetailsColumn: false,
+    hasTagsColumn: false,
+    firstColumnLabel: 'Classification',
     fields: [
       {
         key: 'name',
-        label: 'Classification Name',
+        label: 'Classification',
         type: 'text',
         required: true,
         placeholder: 'e.g. Software Bug, Hardware Failure, Account Access',
       },
-      {
-        key: 'category',
-        label: 'Category Group',
-        type: 'text',
-        required: false,
-        defaultValue: 'General',
-        placeholder: 'e.g. General, Software, Hardware',
-        helpText: 'Optional logical category grouping for this classification.',
-      },
     ],
     columns: [
       { key: 'name', label: 'Classification' },
-      { key: 'category', label: 'Category' },
     ],
   },
 
@@ -101,7 +92,10 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     description: 'Software suites, camera SDK drivers, printer spoolers, and diagnostic recovery utilities.',
     icon: Download,
     searchPlaceholder: 'Search software, version, OS, download URL...',
-    categoryOptions: [...INSTALLER_CATEGORIES],
+    categoryOptions: ['Windows Software', 'MacOS Software', 'Legacy Software'],
+    hasDetailsColumn: true,
+    hasTagsColumn: true,
+    firstColumnLabel: 'Software Name',
     fields: [
       {
         key: 'name',
@@ -130,7 +124,7 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
         label: 'Categories',
         type: 'tags',
         required: false,
-        options: [...INSTALLER_CATEGORIES],
+        options: ['Windows Software', 'MacOS Software', 'Legacy Software'],
         helpText: 'Select tags that describe this software installer.',
       },
       {
@@ -157,10 +151,9 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     ],
     columns: [
       { key: 'name', label: 'Software Name' },
-      { key: 'version', label: 'Version' },
       { key: 'categories', label: 'Categories' },
       { key: 'url', label: 'Link' },
-      { key: 'operating_system', label: 'OS' },
+      { key: 'details', label: 'Details' },
     ],
   },
 
@@ -173,7 +166,17 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     description: 'Branch marketing folders, product collateral, templates, and corporate brand asset libraries.',
     icon: FolderOpen,
     searchPlaceholder: 'Search marketing folders, assets, or categories...',
-    categoryOptions: [...MARKETING_CATEGORIES],
+    categoryOptions: [
+      'DSLR Photo Booth',
+      'iPad Photo Booth',
+      'Mirror Photo Booth',
+      'Photo Booth Concepts',
+      'Templates and Assets',
+      'Video Booth',
+    ],
+    hasDetailsColumn: false,
+    hasTagsColumn: true,
+    firstColumnLabel: 'Resource Name',
     fields: [
       {
         key: 'name',
@@ -195,13 +198,27 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
         label: 'Categories',
         type: 'tags',
         required: false,
-        options: [...MARKETING_CATEGORIES],
+        options: [
+          'DSLR Photo Booth',
+          'iPad Photo Booth',
+          'Mirror Photo Booth',
+          'Photo Booth Concepts',
+          'Templates and Assets',
+          'Video Booth',
+        ],
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        type: 'textarea',
+        required: false,
+        placeholder: 'Optional brief summary of the folder contents...',
       },
     ],
     columns: [
       { key: 'name', label: 'Resource Name' },
-      { key: 'categories', label: 'Categories' },
       { key: 'url', label: 'Drive Link' },
+      { key: 'categories', label: 'Categories' },
     ],
   },
 
@@ -214,7 +231,10 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     description: 'Rapid setup checklists, calibration steps, and quick triage instructions for branch operators.',
     icon: BookOpen,
     searchPlaceholder: 'Search guides, difficulty, time...',
-    categoryOptions: [...QUICK_START_CATEGORIES],
+    categoryOptions: [],
+    hasDetailsColumn: true,
+    hasTagsColumn: true,
+    firstColumnLabel: 'Guide Title',
     fields: [
       {
         key: 'name',
@@ -235,7 +255,7 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
         label: 'Difficulty Level',
         type: 'select',
         required: false,
-        defaultValue: 'Beginner',
+        defaultValue: '',
         options: ['Beginner', 'Intermediate', 'Advanced'],
       },
       {
@@ -250,7 +270,7 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
         label: 'Categories',
         type: 'tags',
         required: false,
-        options: [...QUICK_START_CATEGORIES],
+        options: [],
       },
       {
         key: 'description',
@@ -262,10 +282,9 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     ],
     columns: [
       { key: 'name', label: 'Guide Title' },
-      { key: 'difficulty', label: 'Difficulty' },
-      { key: 'estimated_time', label: 'Est. Time' },
-      { key: 'categories', label: 'Categories' },
       { key: 'url', label: 'Link' },
+      { key: 'categories', label: 'Categories' },
+      { key: 'details', label: 'Details' },
     ],
   },
 
@@ -277,8 +296,11 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     singular: 'Hardware Component',
     description: 'Certified cameras, printers, mini PCs, touchscreens, and peripherals for support operations.',
     icon: Cpu,
-    searchPlaceholder: 'Search hardware components, model, price, status...',
-    categoryOptions: [...HARDWARE_CATEGORIES],
+    searchPlaceholder: 'Search hardware components...',
+    categoryOptions: [],
+    hasDetailsColumn: false,
+    hasTagsColumn: true,
+    firstColumnLabel: 'Component Name',
     fields: [
       {
         key: 'name',
@@ -295,40 +317,11 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
         placeholder: 'https://... spec sheet or vendor purchase link',
       },
       {
-        key: 'status',
-        label: 'Certification Status',
-        type: 'select',
-        required: false,
-        defaultValue: 'Recommended',
-        options: ['Recommended', 'Certified Compatible', 'Legacy Supported'],
-      },
-      {
-        key: 'model_number',
-        label: 'Model / Part Number',
-        type: 'text',
-        required: false,
-        placeholder: 'e.g. 2727C002-DM',
-      },
-      {
-        key: 'estimated_price',
-        label: 'Estimated Price',
-        type: 'text',
-        required: false,
-        placeholder: 'e.g. $479.99',
-      },
-      {
         key: 'categories',
         label: 'Categories',
         type: 'tags',
         required: false,
-        options: [...HARDWARE_CATEGORIES],
-      },
-      {
-        key: 'specifications',
-        label: 'Key Specifications',
-        type: 'text',
-        required: false,
-        placeholder: 'e.g. 24.1 MP APS-C Sensor, Full HD 1080p, AC Coupler',
+        options: [],
       },
       {
         key: 'description',
@@ -340,11 +333,8 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     ],
     columns: [
       { key: 'name', label: 'Component Name' },
-      { key: 'status', label: 'Status' },
-      { key: 'model_number', label: 'Model' },
-      { key: 'estimated_price', label: 'Price' },
-      { key: 'categories', label: 'Categories' },
       { key: 'url', label: 'Link' },
+      { key: 'categories', label: 'Categories' },
     ],
   },
 
@@ -356,8 +346,11 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     singular: 'Manual',
     description: 'Official operations manuals, wiring diagrams, assembly schematics, and service guides.',
     icon: FileText,
-    searchPlaceholder: 'Search manuals, format, version...',
-    categoryOptions: [...MANUAL_CATEGORIES],
+    searchPlaceholder: 'Search manuals...',
+    categoryOptions: ['User Manuals'],
+    hasDetailsColumn: false,
+    hasTagsColumn: true,
+    firstColumnLabel: 'Manual Name',
     fields: [
       {
         key: 'name',
@@ -374,14 +367,6 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
         placeholder: 'https://... link to PDF or online document',
       },
       {
-        key: 'format',
-        label: 'Format',
-        type: 'select',
-        required: false,
-        defaultValue: 'PDF',
-        options: ['PDF', 'Interactive', 'Document'],
-      },
-      {
         key: 'version',
         label: 'Version / Revision',
         type: 'text',
@@ -393,14 +378,7 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
         label: 'Categories',
         type: 'tags',
         required: false,
-        options: [...MANUAL_CATEGORIES],
-      },
-      {
-        key: 'file_size',
-        label: 'File Size',
-        type: 'text',
-        required: false,
-        placeholder: 'e.g. 7.4 MB',
+        options: ['User Manuals'],
       },
       {
         key: 'description',
@@ -412,10 +390,9 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
     ],
     columns: [
       { key: 'name', label: 'Manual Name' },
-      { key: 'format', label: 'Format' },
       { key: 'version', label: 'Version' },
-      { key: 'categories', label: 'Categories' },
       { key: 'url', label: 'Link' },
+      { key: 'categories', label: 'Categories' },
     ],
   },
 };

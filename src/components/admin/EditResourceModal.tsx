@@ -1,69 +1,75 @@
 /**
- * @file GenericResourceAddModal.tsx
- * @description Schema-driven modal for adding new items to any administrative resource catalog.
- * Dynamically configures input fields with WCAG 2.1 AA accessibility standards, clearly separating
- * minimal required fields (Name & Link) from optional metadata.
+ * @file EditResourceModal.tsx
+ * @description Accessible modal for editing visible table fields for an existing resource entry
+ * (Case Classifications, Installers, Marketing Folders, Quick Start Guides, Recommended Hardware, Manuals).
+ * Strictly restricts editable fields to only those visible on the tables.
  */
 
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Loader2, AlertCircle, Check, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { Edit2, Loader2, AlertCircle, Check, Plus } from 'lucide-react';
 import { AdminResourceConfig, ResourceFieldDefinition } from '../../utils/adminResourceConfig';
 import { validateResourcePayload } from '../../utils/adminFormValidation';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '../common/Modal';
 
-export interface GenericResourceAddModalProps {
+export interface EditResourceModalProps {
   isOpen: boolean;
   onClose: () => void;
   config: AdminResourceConfig;
+  item: any | null;
   dynamicCategories?: string[];
-  onAdd: (values: Record<string, any>) => Promise<void>;
+  onEdit: (id: string, values: Record<string, any>, originalItem: any) => Promise<void>;
 }
 
-export const GenericResourceAddModal: React.FC<GenericResourceAddModalProps> = ({
+export const EditResourceModal: React.FC<EditResourceModalProps> = ({
   isOpen,
   onClose,
   config,
+  item,
   dynamicCategories = [],
-  onAdd,
+  onEdit,
 }) => {
   const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isOptionalExpanded, setIsOptionalExpanded] = useState<boolean>(true);
 
-  // Dynamic tags & inline custom tag input
+  // Custom tag creation
   const [customTagInput, setCustomTagInput] = useState<string>('');
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
-  // Initialize or reset form defaults when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && item) {
       const initial: Record<string, any> = {};
       config.fields.forEach((field) => {
         if (field.type === 'tags') {
-          initial[field.key] = field.defaultValue || [];
+          initial[field.key] = Array.isArray(item[field.key])
+            ? item[field.key]
+            : item.category
+            ? [item.category]
+            : [];
         } else {
-          initial[field.key] = field.defaultValue ?? '';
+          initial[field.key] = item[field.key] ?? '';
         }
       });
       setFormValues(initial);
       setFieldErrors({});
       setSubmitError(null);
-      setIsOptionalExpanded(true);
       setCustomTagInput('');
 
+      // Merge dynamic categories from DB with item's existing tags and config options
+      const itemTags = Array.isArray(item.categories) ? item.categories : item.category ? [item.category] : [];
       const merged = Array.from(
         new Set([
           ...dynamicCategories,
           ...(config.categoryOptions || []),
+          ...itemTags,
         ].filter(Boolean))
       ).sort();
       setAvailableTags(merged);
     }
-  }, [isOpen, config, dynamicCategories]);
+  }, [isOpen, item, config, dynamicCategories]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !item) return null;
 
   const handleChange = (key: string, value: any) => {
     setFormValues((prev) => ({ ...prev, [key]: value }));
@@ -104,7 +110,6 @@ export const GenericResourceAddModal: React.FC<GenericResourceAddModalProps> = (
     e.preventDefault();
     if (isSubmitting) return;
 
-    // Validate using pure /utils validator
     const { isValid, errors } = validateResourcePayload(config, formValues);
     if (!isValid) {
       setFieldErrors(errors);
@@ -115,22 +120,19 @@ export const GenericResourceAddModal: React.FC<GenericResourceAddModalProps> = (
     setSubmitError(null);
 
     try {
-      await onAdd(formValues);
+      await onEdit(item.id, formValues, item);
       onClose();
     } catch (err: any) {
-      setSubmitError(err?.message || `Failed to add ${config.singular.toLowerCase()}.`);
+      setSubmitError(err?.message || `Failed to update ${config.singular.toLowerCase()}.`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const requiredFields = config.fields.filter((f) => f.required);
-  const optionalFields = config.fields.filter((f) => !f.required);
-
   const renderField = (field: ResourceFieldDefinition) => {
     const error = fieldErrors[field.key];
     const value = formValues[field.key] ?? '';
-    const inputId = `resource-field-${field.key}`;
+    const inputId = `edit-field-${field.key}`;
     const errorId = `${inputId}-error`;
     const helpId = `${inputId}-help`;
 
@@ -284,11 +286,11 @@ export const GenericResourceAddModal: React.FC<GenericResourceAddModalProps> = (
   const Icon = config.icon;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} maxWidth="lg" ariaLabelledBy="generic-resource-modal-title">
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="lg" ariaLabelledBy="edit-resource-modal-title">
       <form onSubmit={handleSubmit} className="flex flex-col h-full max-h-[85vh]">
         <ModalHeader
-          title={`Add ${config.singular}`}
-          subtitle={`Create a new entry in ${config.title}. Only minimal required fields are needed.`}
+          title={`Edit ${config.singular}`}
+          subtitle={`Update visible details for "${item.name}". Only visible table attributes are editable.`}
           icon={<Icon className="w-5 h-5 text-fotoblue-600 dark:text-fotoblue-400" />}
           onClose={onClose}
         />
@@ -301,53 +303,9 @@ export const GenericResourceAddModal: React.FC<GenericResourceAddModalProps> = (
             </div>
           )}
 
-          {/* Section 1: Required Minimal Fields */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 pb-1 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-[11px] font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                Required Information
-              </span>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                (Minimal data needed)
-              </span>
-            </div>
-            <div className="space-y-3.5">
-              {requiredFields.map(renderField)}
-            </div>
+          <div className="space-y-3.5">
+            {config.fields.map(renderField)}
           </div>
-
-          {/* Section 2: Optional Details */}
-          {optionalFields.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsOptionalExpanded((prev) => !prev)}
-                className="w-full flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800 text-left cursor-pointer group"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 uppercase tracking-wider transition-colors">
-                    Optional Details
-                  </span>
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                    ({optionalFields.length} optional fields)
-                  </span>
-                </div>
-                <div className="text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
-                  {isOptionalExpanded ? (
-                    <ChevronDown className="w-4 h-4" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4" />
-                  )}
-                </div>
-              </button>
-
-              {isOptionalExpanded && (
-                <div className="space-y-3.5 pl-0.5">
-                  {optionalFields.map(renderField)}
-                </div>
-              )}
-            </div>
-          )}
         </ModalBody>
 
         <ModalFooter className="flex items-center justify-end gap-2.5">
@@ -371,8 +329,8 @@ export const GenericResourceAddModal: React.FC<GenericResourceAddModalProps> = (
               </>
             ) : (
               <>
-                <PlusCircle className="w-4 h-4" />
-                <span>Add {config.singular}</span>
+                <Edit2 className="w-4 h-4" />
+                <span>Save Changes</span>
               </>
             )}
           </button>

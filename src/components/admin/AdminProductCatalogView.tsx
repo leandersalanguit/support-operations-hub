@@ -16,8 +16,6 @@ import {
   Edit2,
   CheckCircle2,
   AlertCircle,
-  ToggleLeft,
-  ToggleRight,
   Loader2,
 } from 'lucide-react';
 import { CatalogProduct } from '../../domain/catalog/types';
@@ -333,20 +331,33 @@ export const AdminProductCatalogView: React.FC<AdminProductCatalogViewProps> = (
                     </td>
 
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          product.isActive
-                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            product.isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={product.isActive}
+                          onClick={() => setProductToToggle(product)}
+                          title={product.isActive ? `Deactivate product "${product.name}"` : `Activate product "${product.name}"`}
+                          aria-label={product.isActive ? `Deactivate product "${product.name}"` : `Activate product "${product.name}"`}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden focus:ring-2 focus:ring-fotoblue-500/30 ${
+                            product.isActive ? 'bg-emerald-500 dark:bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
                           }`}
-                        />
-                        {product.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                              product.isActive ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                        <span
+                          className={`text-[10px] font-bold uppercase tracking-wider ${
+                            product.isActive ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500'
+                          }`}
+                        >
+                          {product.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
                     </td>
 
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
@@ -354,30 +365,12 @@ export const AdminProductCatalogView: React.FC<AdminProductCatalogViewProps> = (
                         <button
                           type="button"
                           onClick={() => setProductToRename(product)}
-                          aria-label={`Rename product "${product.name}"`}
-                          className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
-                          title={`Rename product "${product.name}"`}
+                          aria-label={`Edit entry "${product.name}"`}
+                          className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                          title={`Edit entry "${product.name}"`}
                         >
                           <Edit2 className="w-3 h-3 text-fotoblue-600 dark:text-fotoblue-400" />
-                          <span>Rename</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setProductToToggle(product)}
-                          aria-label={product.isActive ? `Deactivate product "${product.name}"` : `Activate product "${product.name}"`}
-                          className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
-                            product.isActive
-                              ? 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40'
-                              : 'border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
-                          }`}
-                          title={product.isActive ? 'Deactivate product' : 'Activate product'}
-                        >
-                          {product.isActive ? (
-                            <ToggleRight className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          ) : (
-                            <ToggleLeft className="w-4 h-4 text-slate-400" />
-                          )}
+                          <span>Edit Entry</span>
                         </button>
                       </div>
                     </td>

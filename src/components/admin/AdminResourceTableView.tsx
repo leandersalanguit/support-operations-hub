@@ -21,7 +21,7 @@ import { AdminResourceConfig } from '../../utils/adminResourceConfig';
 import { resourceAdminRepo } from '../../infrastructure/supabase/resourceAdminRepo';
 import { GenericResourceAddModal } from './GenericResourceAddModal';
 import { CatalogAuditLogModal } from './CatalogAuditLogModal';
-import { RenameResourceModal } from './RenameResourceModal';
+import { EditResourceModal } from './EditResourceModal';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { AdminResourceTableRow } from './AdminResourceTableRow';
 import { CatalogAuditLog } from '../../domain/catalog/types';
@@ -48,7 +48,7 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
-  const [itemToRename, setItemToRename] = useState<any | null>(null);
+  const [itemToEdit, setItemToEdit] = useState<any | null>(null);
   const [itemToToggle, setItemToToggle] = useState<any | null>(null);
   const [isTogglingStatus, setIsTogglingStatus] = useState<boolean>(false);
 
@@ -56,6 +56,23 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
   const [auditLogs, setAuditLogs] = useState<CatalogAuditLog[]>([]);
   const [isAuditLoading, setIsAuditLoading] = useState<boolean>(false);
   const [auditError, setAuditError] = useState<string | null>(null);
+
+  // Dynamically derive categories present in the database table
+  const dynamicCategories = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach((item) => {
+      if (Array.isArray(item.categories)) {
+        item.categories.forEach((cat: string) => {
+          if (cat && typeof cat === 'string' && cat.trim()) {
+            set.add(cat.trim());
+          }
+        });
+      } else if (typeof item.category === 'string' && item.category.trim()) {
+        set.add(item.category.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [items]);
 
   /**
    * Loads all entries for this resource catalog
@@ -118,11 +135,11 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
   };
 
   /**
-   * Handles renaming a resource entry
+   * Handles editing a resource entry (updating visible fields)
    */
-  const handleRenameItem = async (id: string, oldName: string, newName: string) => {
+  const handleEditItem = async (id: string, values: Record<string, any>, originalItem: any) => {
     const actor = currentAgentName || 'Team Lead';
-    await resourceAdminRepo.renameItem(config, id, oldName, newName, actor);
+    await resourceAdminRepo.updateItem(config, id, values, originalItem, actor);
     await loadItems();
 
     if (onTaxonomiesChanged) {
@@ -388,12 +405,18 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
             <table aria-label={`${config.title} Table`} className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <th scope="col" className="py-3 px-4">Name / Title</th>
+                  <th scope="col" className="py-3 px-4">
+                    {config.firstColumnLabel || (config.key === 'admin-case-classifications' ? 'Classification' : 'Name / Title')}
+                  </th>
                   {config.tableName !== 'case_classifications' && (
                     <th scope="col" className="py-3 px-4">Link / Resource</th>
                   )}
-                  <th scope="col" className="py-3 px-4">Category / Tags</th>
-                  <th scope="col" className="py-3 px-4">Details</th>
+                  {config.hasTagsColumn !== false && (
+                    <th scope="col" className="py-3 px-4">Category / Tags</th>
+                  )}
+                  {config.hasDetailsColumn !== false && (
+                    <th scope="col" className="py-3 px-4">Details</th>
+                  )}
                   <th scope="col" className="py-3 px-4 text-center">Status</th>
                   <th scope="col" className="py-3 px-4 text-right">Actions</th>
                 </tr>
@@ -405,7 +428,7 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
                     item={item}
                     config={config}
                     onToggleStatus={setItemToToggle}
-                    onRename={setItemToRename}
+                    onEdit={setItemToEdit}
                   />
                 ))}
               </tbody>
@@ -419,16 +442,18 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         config={config}
+        dynamicCategories={dynamicCategories}
         onAdd={handleAddItem}
       />
 
-      {/* Rename Resource Modal */}
-      <RenameResourceModal
-        isOpen={!!itemToRename}
-        onClose={() => setItemToRename(null)}
+      {/* Edit Resource Modal */}
+      <EditResourceModal
+        isOpen={!!itemToEdit}
+        onClose={() => setItemToEdit(null)}
         config={config}
-        item={itemToRename}
-        onRename={handleRenameItem}
+        item={itemToEdit}
+        dynamicCategories={dynamicCategories}
+        onEdit={handleEditItem}
       />
 
       {/* Audit History Modal (Strictly Read-Only: No edit or delete buttons) */}

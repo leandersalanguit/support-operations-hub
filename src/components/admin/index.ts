@@ -12,5 +12,6 @@ export * from './AdminResourceTableView';
 export * from './AdminResourceTableRow';
 export * from './AdminProductCatalogView';
 export * from './RenameResourceModal';
+export * from './EditResourceModal';
 
 

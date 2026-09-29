@@ -154,6 +154,64 @@ export class ResourceAdminRepository {
   }
 
   /**
+   * Updates an existing resource entry (updating all editable visible fields)
+   * and records an audit log entry in catalog_audit_logs.
+   */
+  async updateItem(
+    config: AdminResourceConfig,
+    id: string,
+    values: Record<string, any>,
+    originalItem: any,
+    agentName: string
+  ): Promise<any> {
+    const payload = sanitizeResourcePayload(config, values);
+    const actor = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
+
+    if (!isSupabaseConfigured) {
+      return { id, ...originalItem, ...payload, updated_at: new Date().toISOString() };
+    }
+
+    return await withNetworkRetry(async () => {
+      // 1. Update target table
+      const { data, error } = await supabase
+        .from(config.tableName)
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error(`[resourceAdminRepo] Error updating ${config.tableName}:`, error);
+        throw new Error(error.message);
+      }
+
+      // 2. Append audit log entry
+      try {
+        const isRenamed = originalItem?.name && payload.name && originalItem.name !== payload.name;
+        await supabase.from('catalog_audit_logs').insert([
+          {
+            catalog_type: config.catalogType,
+            action: isRenamed ? 'rename' : 'rename',
+            old_value: originalItem?.name || payload.name,
+            new_value: payload.name,
+            performed_by: actor,
+            details: {
+              id,
+              tableName: config.tableName,
+              updatedFields: Object.keys(values),
+              changes: values,
+            },
+          },
+        ]);
+      } catch (auditErr: any) {
+        console.warn(`[resourceAdminRepo] Notice appending audit log for ${config.tableName}:`, auditErr?.message);
+      }
+
+      return data;
+    });
+  }
+
+  /**
    * Renames a resource entry and appends an audit log record into catalog_audit_logs.
    */
   async renameItem(
