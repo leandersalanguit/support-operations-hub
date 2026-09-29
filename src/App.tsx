@@ -336,10 +336,12 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
               onUpdateClients={updateClients}
               onNavigateToSummary={() => setActiveTab('shift-summary')}
             />
-          ) : (activeTab === 'admin-product-catalog' || activeTab === 'admin-dashboard') && userRole === 'team_lead' ? (
-            /* Dedicated Product Catalog View (Team Leads only) */
+          ) : (activeTab.startsWith('admin-') && activeTab !== 'admin-renewal-links') && userRole === 'team_lead' ? (
+            /* Dedicated Admin Dashboard View (Team Leads only) */
             <AdminDashboard
               userRole={userRole}
+              activeTab={activeTab}
+              onSelectTab={(tab) => setActiveTab(tab as TabKey)}
               currentAgentName={currentAgentFullName || currentAgentName}
               onNavigateToSummary={() => setActiveTab('shift-summary')}
               onTaxonomiesChanged={taxonomies.refreshTaxonomies}
