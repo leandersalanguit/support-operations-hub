@@ -149,6 +149,17 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                 >
                   Created
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActionFilter('toggle_active')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    actionFilter === 'toggle_active'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Status Toggles
+                </button>
               </div>
 
               <button
