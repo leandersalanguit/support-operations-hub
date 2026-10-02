@@ -28,6 +28,10 @@ CREATE INDEX IF NOT EXISTS idx_catalog_products_active_order ON public.catalog_p
 -- Enable RLS
 ALTER TABLE public.catalog_products ENABLE ROW LEVEL SECURITY;
 
+-- Expose catalog data only to signed-in users; writes are further restricted by RLS.
+REVOKE ALL ON TABLE public.catalog_products FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.catalog_products TO authenticated;
+
 -- Read policy: Allow authenticated users to view catalog products
 DROP POLICY IF EXISTS "Allow authenticated read to catalog_products" ON public.catalog_products;
 CREATE POLICY "Allow authenticated read to catalog_products" ON public.catalog_products
@@ -36,15 +40,27 @@ CREATE POLICY "Allow authenticated read to catalog_products" ON public.catalog_p
 -- Write policies: Allow authenticated team members to insert/update/delete
 DROP POLICY IF EXISTS "Allow authenticated insert to catalog_products" ON public.catalog_products;
 CREATE POLICY "Allow authenticated insert to catalog_products" ON public.catalog_products
-  FOR INSERT TO authenticated WITH CHECK (true);
+  FOR INSERT TO authenticated WITH CHECK (
+    ((select auth.jwt()) -> 'app_metadata' ->> 'role')
+      IN ('team_lead', 'lead', 'admin')
+  );
 
 DROP POLICY IF EXISTS "Allow authenticated update to catalog_products" ON public.catalog_products;
 CREATE POLICY "Allow authenticated update to catalog_products" ON public.catalog_products
-  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+  FOR UPDATE TO authenticated USING (
+    ((select auth.jwt()) -> 'app_metadata' ->> 'role')
+      IN ('team_lead', 'lead', 'admin')
+  ) WITH CHECK (
+    ((select auth.jwt()) -> 'app_metadata' ->> 'role')
+      IN ('team_lead', 'lead', 'admin')
+  );
 
 DROP POLICY IF EXISTS "Allow authenticated delete to catalog_products" ON public.catalog_products;
 CREATE POLICY "Allow authenticated delete to catalog_products" ON public.catalog_products
-  FOR DELETE TO authenticated USING (true);
+  FOR DELETE TO authenticated USING (
+    ((select auth.jwt()) -> 'app_metadata' ->> 'role')
+      IN ('team_lead', 'lead', 'admin')
+  );
 
 
 -- ------------------------------------------------------------------------------
@@ -71,20 +87,30 @@ CREATE INDEX IF NOT EXISTS idx_catalog_audit_action
 -- Enable RLS
 ALTER TABLE public.catalog_audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Grant table permissions to anon and authenticated
-GRANT SELECT, INSERT ON public.catalog_audit_logs TO anon, authenticated;
+-- Audit data is restricted to team leads. Revoke any earlier public grants so
+-- re-running this script also removes the prior anonymous access.
+REVOKE ALL ON TABLE public.catalog_audit_logs FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT ON TABLE public.catalog_audit_logs TO authenticated;
 
--- Allow users to view audit logs
 DROP POLICY IF EXISTS "Allow authenticated read to catalog_audit_logs" ON public.catalog_audit_logs;
 DROP POLICY IF EXISTS "Allow read to catalog_audit_logs" ON public.catalog_audit_logs;
-CREATE POLICY "Allow read to catalog_audit_logs" ON public.catalog_audit_logs
-  FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Allow team lead read to catalog_audit_logs" ON public.catalog_audit_logs;
+CREATE POLICY "Allow team lead read to catalog_audit_logs" ON public.catalog_audit_logs
+  FOR SELECT TO authenticated
+  USING (
+    ((select auth.jwt()) -> 'app_metadata' ->> 'role')
+      IN ('team_lead', 'lead', 'admin')
+  );
 
--- Allow inserting audit records (immutable audit trail; no UPDATE or DELETE granted/allowed)
 DROP POLICY IF EXISTS "Allow authenticated insert to catalog_audit_logs" ON public.catalog_audit_logs;
 DROP POLICY IF EXISTS "Allow insert to catalog_audit_logs" ON public.catalog_audit_logs;
-CREATE POLICY "Allow insert to catalog_audit_logs" ON public.catalog_audit_logs
-  FOR INSERT TO anon, authenticated WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow team lead insert to catalog_audit_logs" ON public.catalog_audit_logs;
+CREATE POLICY "Allow team lead insert to catalog_audit_logs" ON public.catalog_audit_logs
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    ((select auth.jwt()) -> 'app_metadata' ->> 'role')
+      IN ('team_lead', 'lead', 'admin')
+  );
 
 
 -- ------------------------------------------------------------------------------
@@ -201,7 +227,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Rebind trigger to public.catalog_products
 DROP TRIGGER IF EXISTS trg_catalog_product_rename ON public.catalog_products;
@@ -229,6 +255,13 @@ DECLARE
   v_affected_interactions INT := 0;
   v_affected_sessions INT := 0;
 BEGIN
+  IF COALESCE(
+    (auth.jwt() -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'),
+    false
+  ) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Team lead privileges required.' USING ERRCODE = '42501';
+  END IF;
+
   IF v_trimmed_old = '' OR v_trimmed_new = '' THEN
     RAISE EXCEPTION 'Both old and new product names are required.';
   END IF;
@@ -308,7 +341,7 @@ BEGIN
     'performed_by', v_actor
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 
 -- ------------------------------------------------------------------------------
@@ -325,8 +358,15 @@ RETURNS TABLE (
   display_order INT,
   client_count BIGINT,
   interaction_count BIGINT
-) AS $$
+) AS $
 BEGIN
+  IF COALESCE(
+    (auth.jwt() -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'),
+    false
+  ) IS NOT TRUE THEN
+    RAISE EXCEPTION 'Team lead privileges required.' USING ERRCODE = '42501';
+  END IF;
+
   RETURN QUERY
   SELECT 
     cp.id,
@@ -348,8 +388,13 @@ BEGIN
   ) it ON it.client_product = cp.name
   ORDER BY cp.display_order ASC, cp.name ASC;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
--- Grant execution to authenticated and anon users
-GRANT EXECUTE ON FUNCTION public.rename_catalog_product(TEXT, TEXT, TEXT) TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION public.get_catalog_product_stats() TO authenticated, anon;
+-- Remove inherited/default public access as well as any prior anonymous grants.
+REVOKE ALL ON FUNCTION public.fn_cascade_catalog_product_rename() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.rename_catalog_product(TEXT, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.get_catalog_product_stats() FROM PUBLIC, anon, authenticated;
+
+-- The RPCs are callable by authenticated users, but enforce the team-lead role internally.
+GRANT EXECUTE ON FUNCTION public.rename_catalog_product(TEXT, TEXT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_catalog_product_stats() TO authenticated;
