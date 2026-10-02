@@ -405,19 +405,18 @@ GRANT EXECUTE ON FUNCTION public.get_catalog_product_stats() TO authenticated;
 -- ------------------------------------------------------------------------------
 -- 5. Harden access to every other exposed public table
 -- ------------------------------------------------------------------------------
--- Anonymous users may read non-sensitive lookup/resource content, but must never
--- mutate it. Client, interaction, and audit data require an authenticated session.
+-- Reference data is available only to signed-in users. Client, interaction, and audit
+-- data also require an authenticated session.
 -- Keep grants narrow: RLS does not restrict TRUNCATE/REFERENCES/TRIGGER privileges.
 
 ALTER TABLE public.case_classifications ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.case_classifications FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.case_classifications TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.case_classifications TO authenticated;
 DROP POLICY IF EXISTS "Allow modify case_classifications" ON public.case_classifications;
 DROP POLICY IF EXISTS "Allow select case_classifications" ON public.case_classifications;
-DROP POLICY IF EXISTS "Allow public read case_classifications" ON public.case_classifications;
-CREATE POLICY "Allow public read case_classifications" ON public.case_classifications
-  FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Allow authenticated read case_classifications" ON public.case_classifications;
+CREATE POLICY "Allow authenticated read case_classifications" ON public.case_classifications
+  FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Allow team lead insert case_classifications" ON public.case_classifications;
 CREATE POLICY "Allow team lead insert case_classifications" ON public.case_classifications
   FOR INSERT TO authenticated WITH CHECK (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
@@ -429,13 +428,12 @@ CREATE POLICY "Allow team lead delete case_classifications" ON public.case_class
   FOR DELETE TO authenticated USING (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
 ALTER TABLE public.installers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.installers FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.installers TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.installers TO authenticated;
 DROP POLICY IF EXISTS "Allow modify installers" ON public.installers;
 DROP POLICY IF EXISTS "Allow read-only access to installers" ON public.installers;
-DROP POLICY IF EXISTS "Allow public read installers" ON public.installers;
-CREATE POLICY "Allow public read installers" ON public.installers
-  FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Allow authenticated read installers" ON public.installers;
+CREATE POLICY "Allow authenticated read installers" ON public.installers
+  FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Allow team lead insert installers" ON public.installers;
 CREATE POLICY "Allow team lead insert installers" ON public.installers
   FOR INSERT TO authenticated WITH CHECK (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
@@ -447,13 +445,12 @@ CREATE POLICY "Allow team lead delete installers" ON public.installers
   FOR DELETE TO authenticated USING (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
 ALTER TABLE public.marketing_resources ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.marketing_resources FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.marketing_resources TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.marketing_resources TO authenticated;
 DROP POLICY IF EXISTS "Allow modify marketing_resources" ON public.marketing_resources;
 DROP POLICY IF EXISTS "Allow select marketing_resources" ON public.marketing_resources;
-DROP POLICY IF EXISTS "Allow public read marketing_resources" ON public.marketing_resources;
-CREATE POLICY "Allow public read marketing_resources" ON public.marketing_resources
-  FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Allow authenticated read marketing_resources" ON public.marketing_resources;
+CREATE POLICY "Allow authenticated read marketing_resources" ON public.marketing_resources
+  FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Allow team lead insert marketing_resources" ON public.marketing_resources;
 CREATE POLICY "Allow team lead insert marketing_resources" ON public.marketing_resources
   FOR INSERT TO authenticated WITH CHECK (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
@@ -465,13 +462,12 @@ CREATE POLICY "Allow team lead delete marketing_resources" ON public.marketing_r
   FOR DELETE TO authenticated USING (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
 ALTER TABLE public.quick_start_guides ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.quick_start_guides FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.quick_start_guides TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.quick_start_guides TO authenticated;
 DROP POLICY IF EXISTS "Allow modify quick_start_guides" ON public.quick_start_guides;
 DROP POLICY IF EXISTS "Allow read-only access to quick start guides" ON public.quick_start_guides;
-DROP POLICY IF EXISTS "Allow public read quick_start_guides" ON public.quick_start_guides;
-CREATE POLICY "Allow public read quick_start_guides" ON public.quick_start_guides
-  FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Allow authenticated read quick_start_guides" ON public.quick_start_guides;
+CREATE POLICY "Allow authenticated read quick_start_guides" ON public.quick_start_guides
+  FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Allow team lead insert quick_start_guides" ON public.quick_start_guides;
 CREATE POLICY "Allow team lead insert quick_start_guides" ON public.quick_start_guides
   FOR INSERT TO authenticated WITH CHECK (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
@@ -483,13 +479,12 @@ CREATE POLICY "Allow team lead delete quick_start_guides" ON public.quick_start_
   FOR DELETE TO authenticated USING (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
 ALTER TABLE public.recommended_hardware ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.recommended_hardware FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.recommended_hardware TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.recommended_hardware TO authenticated;
 DROP POLICY IF EXISTS "Allow modify recommended_hardware" ON public.recommended_hardware;
 DROP POLICY IF EXISTS "Allow read-only access to recommended hardware" ON public.recommended_hardware;
-DROP POLICY IF EXISTS "Allow public read recommended_hardware" ON public.recommended_hardware;
-CREATE POLICY "Allow public read recommended_hardware" ON public.recommended_hardware
-  FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Allow authenticated read recommended_hardware" ON public.recommended_hardware;
+CREATE POLICY "Allow authenticated read recommended_hardware" ON public.recommended_hardware
+  FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Allow team lead insert recommended_hardware" ON public.recommended_hardware;
 CREATE POLICY "Allow team lead insert recommended_hardware" ON public.recommended_hardware
   FOR INSERT TO authenticated WITH CHECK (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
@@ -501,13 +496,12 @@ CREATE POLICY "Allow team lead delete recommended_hardware" ON public.recommende
   FOR DELETE TO authenticated USING (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
 ALTER TABLE public.manuals ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.manuals FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.manuals TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.manuals TO authenticated;
 DROP POLICY IF EXISTS "Allow modify manuals" ON public.manuals;
 DROP POLICY IF EXISTS "Allow read-only access to manuals" ON public.manuals;
-DROP POLICY IF EXISTS "Allow public read manuals" ON public.manuals;
-CREATE POLICY "Allow public read manuals" ON public.manuals
-  FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS "Allow authenticated read manuals" ON public.manuals;
+CREATE POLICY "Allow authenticated read manuals" ON public.manuals
+  FOR SELECT TO authenticated USING (true);
 DROP POLICY IF EXISTS "Allow team lead insert manuals" ON public.manuals;
 CREATE POLICY "Allow team lead insert manuals" ON public.manuals
   FOR INSERT TO authenticated WITH CHECK (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
@@ -519,13 +513,12 @@ CREATE POLICY "Allow team lead delete manuals" ON public.manuals
   FOR DELETE TO authenticated USING (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
 ALTER TABLE public.support_tiers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.support_tiers FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.support_tiers TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.support_tiers TO authenticated;
 DROP POLICY IF EXISTS "Allow modify support_tiers" ON public.support_tiers;
 DROP POLICY IF EXISTS "Allow select support_tiers" ON public.support_tiers;
-DROP POLICY IF EXISTS "Allow public read support_tiers" ON public.support_tiers;
-CREATE POLICY "Allow public read support_tiers" ON public.support_tiers
-  FOR SELECT TO anon, authenticated USING (is_active = true);
+DROP POLICY IF EXISTS "Allow authenticated read support_tiers" ON public.support_tiers;
+CREATE POLICY "Allow authenticated read support_tiers" ON public.support_tiers
+  FOR SELECT TO authenticated USING (is_active = true);
 DROP POLICY IF EXISTS "Allow team lead insert support_tiers" ON public.support_tiers;
 CREATE POLICY "Allow team lead insert support_tiers" ON public.support_tiers
   FOR INSERT TO authenticated WITH CHECK (((select auth.jwt()) -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'));
