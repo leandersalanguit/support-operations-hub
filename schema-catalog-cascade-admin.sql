@@ -227,7 +227,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Rebind trigger to public.catalog_products
 DROP TRIGGER IF EXISTS trg_catalog_product_rename ON public.catalog_products;
@@ -341,7 +341,7 @@ BEGIN
     'performed_by', v_actor
   );
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 
 -- ------------------------------------------------------------------------------
@@ -358,7 +358,7 @@ RETURNS TABLE (
   display_order INT,
   client_count BIGINT,
   interaction_count BIGINT
-) AS $
+) AS $$
 BEGIN
   IF COALESCE(
     (auth.jwt() -> 'app_metadata' ->> 'role') IN ('team_lead', 'lead', 'admin'),
@@ -388,7 +388,7 @@ BEGIN
   ) it ON it.client_product = cp.name
   ORDER BY cp.display_order ASC, cp.name ASC;
 END;
-$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 -- Remove inherited/default public access as well as any prior anonymous grants.
 REVOKE ALL ON FUNCTION public.fn_cascade_catalog_product_rename() FROM PUBLIC, anon, authenticated;
