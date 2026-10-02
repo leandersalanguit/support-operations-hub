@@ -414,6 +414,7 @@ REVOKE ALL ON TABLE public.case_classifications FROM PUBLIC, anon, authenticated
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.case_classifications TO authenticated;
 DROP POLICY IF EXISTS "Allow modify case_classifications" ON public.case_classifications;
 DROP POLICY IF EXISTS "Allow select case_classifications" ON public.case_classifications;
+DROP POLICY IF EXISTS "Allow public read case_classifications" ON public.case_classifications;
 DROP POLICY IF EXISTS "Allow authenticated read case_classifications" ON public.case_classifications;
 CREATE POLICY "Allow authenticated read case_classifications" ON public.case_classifications
   FOR SELECT TO authenticated USING (true);
@@ -431,6 +432,7 @@ REVOKE ALL ON TABLE public.installers FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.installers TO authenticated;
 DROP POLICY IF EXISTS "Allow modify installers" ON public.installers;
 DROP POLICY IF EXISTS "Allow read-only access to installers" ON public.installers;
+DROP POLICY IF EXISTS "Allow public read installers" ON public.installers;
 DROP POLICY IF EXISTS "Allow authenticated read installers" ON public.installers;
 CREATE POLICY "Allow authenticated read installers" ON public.installers
   FOR SELECT TO authenticated USING (true);
@@ -448,6 +450,7 @@ REVOKE ALL ON TABLE public.marketing_resources FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.marketing_resources TO authenticated;
 DROP POLICY IF EXISTS "Allow modify marketing_resources" ON public.marketing_resources;
 DROP POLICY IF EXISTS "Allow select marketing_resources" ON public.marketing_resources;
+DROP POLICY IF EXISTS "Allow public read marketing_resources" ON public.marketing_resources;
 DROP POLICY IF EXISTS "Allow authenticated read marketing_resources" ON public.marketing_resources;
 CREATE POLICY "Allow authenticated read marketing_resources" ON public.marketing_resources
   FOR SELECT TO authenticated USING (true);
@@ -465,6 +468,7 @@ REVOKE ALL ON TABLE public.quick_start_guides FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.quick_start_guides TO authenticated;
 DROP POLICY IF EXISTS "Allow modify quick_start_guides" ON public.quick_start_guides;
 DROP POLICY IF EXISTS "Allow read-only access to quick start guides" ON public.quick_start_guides;
+DROP POLICY IF EXISTS "Allow public read quick_start_guides" ON public.quick_start_guides;
 DROP POLICY IF EXISTS "Allow authenticated read quick_start_guides" ON public.quick_start_guides;
 CREATE POLICY "Allow authenticated read quick_start_guides" ON public.quick_start_guides
   FOR SELECT TO authenticated USING (true);
@@ -482,6 +486,7 @@ REVOKE ALL ON TABLE public.recommended_hardware FROM PUBLIC, anon, authenticated
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.recommended_hardware TO authenticated;
 DROP POLICY IF EXISTS "Allow modify recommended_hardware" ON public.recommended_hardware;
 DROP POLICY IF EXISTS "Allow read-only access to recommended hardware" ON public.recommended_hardware;
+DROP POLICY IF EXISTS "Allow public read recommended_hardware" ON public.recommended_hardware;
 DROP POLICY IF EXISTS "Allow authenticated read recommended_hardware" ON public.recommended_hardware;
 CREATE POLICY "Allow authenticated read recommended_hardware" ON public.recommended_hardware
   FOR SELECT TO authenticated USING (true);
@@ -499,6 +504,7 @@ REVOKE ALL ON TABLE public.manuals FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.manuals TO authenticated;
 DROP POLICY IF EXISTS "Allow modify manuals" ON public.manuals;
 DROP POLICY IF EXISTS "Allow read-only access to manuals" ON public.manuals;
+DROP POLICY IF EXISTS "Allow public read manuals" ON public.manuals;
 DROP POLICY IF EXISTS "Allow authenticated read manuals" ON public.manuals;
 CREATE POLICY "Allow authenticated read manuals" ON public.manuals
   FOR SELECT TO authenticated USING (true);
@@ -516,6 +522,7 @@ REVOKE ALL ON TABLE public.support_tiers FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.support_tiers TO authenticated;
 DROP POLICY IF EXISTS "Allow modify support_tiers" ON public.support_tiers;
 DROP POLICY IF EXISTS "Allow select support_tiers" ON public.support_tiers;
+DROP POLICY IF EXISTS "Allow public read support_tiers" ON public.support_tiers;
 DROP POLICY IF EXISTS "Allow authenticated read support_tiers" ON public.support_tiers;
 CREATE POLICY "Allow authenticated read support_tiers" ON public.support_tiers
   FOR SELECT TO authenticated USING (is_active = true);
