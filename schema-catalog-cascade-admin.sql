@@ -569,3 +569,5 @@ CREATE POLICY "Allow authenticated read interactions" ON public.interactions
 -- anonymous privileges. Grant only the access each new API object actually needs.
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, anon;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon;
+
+COMMIT;
