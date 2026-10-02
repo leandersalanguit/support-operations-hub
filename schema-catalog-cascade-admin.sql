@@ -27,6 +27,9 @@ CREATE INDEX IF NOT EXISTS idx_catalog_products_active_order ON public.catalog_p
 
 -- Enable RLS
 ALTER TABLE public.catalog_products ENABLE ROW LEVEL SECURITY;
+-- Remove legacy policies that granted anonymous catalog reads or writes.
+DROP POLICY IF EXISTS "Allow select catalog_products" ON public.catalog_products;
+DROP POLICY IF EXISTS "Allow modify catalog_products" ON public.catalog_products;
 
 -- Expose catalog data only to signed-in users; writes are further restricted by RLS.
 REVOKE ALL ON TABLE public.catalog_products FROM PUBLIC, anon, authenticated;
