@@ -23,6 +23,8 @@ import { CASE_CLASSIFICATIONS } from '../../domain/interaction/types';
 export class ResourceAdminRepository {
   /**
    * Fetches all entries (both active and inactive) for a resource table.
+   * Local sample data is used only when Supabase is not configured. Query errors
+   * propagate to the view, and an empty database table remains empty.
    */
   async fetchItems<T = any>(config: AdminResourceConfig): Promise<T[]> {
     if (!isSupabaseConfigured) {
@@ -37,15 +39,11 @@ export class ResourceAdminRepository {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.warn(`[resourceAdminRepo] Warning querying ${config.tableName}:`, error.message);
-        return this.getFallbackData<T>(config.tableName);
+        console.error(`[resourceAdminRepo] Error querying ${config.tableName}:`, error);
+        throw new Error(`Failed to load ${config.tableName}: ${error.message}`);
       }
 
-      if (!data || data.length === 0) {
-        return this.getFallbackData<T>(config.tableName);
-      }
-
-      return data as T[];
+      return (data ?? []) as T[];
     });
   }
 
