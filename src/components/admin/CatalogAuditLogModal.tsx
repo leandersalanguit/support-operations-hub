@@ -37,7 +37,7 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
   onRefresh,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [actionFilter, setActionFilter] = useState<'all' | 'rename' | 'create' | 'toggle_active'>('all');
+  const [actionFilter, setActionFilter] = useState<'all' | 'rename' | 'update' | 'create' | 'toggle_active'>('all');
 
   const filteredLogs = useMemo(() => {
     return auditLogs.filter((log) => {
@@ -65,6 +65,13 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-fotoblue-50 dark:bg-fotoblue-950/60 text-fotoblue-700 dark:text-fotoblue-300 border border-fotoblue-200/60 dark:border-fotoblue-800/60">
             <FileEdit className="w-3 h-3" />
             Rename
+          </span>
+        );
+      case 'update':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+            <FileEdit className="w-3 h-3" />
+            Edited
           </span>
         );
       case 'create':
@@ -138,6 +145,17 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                   }`}
                 >
                   Renames
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActionFilter('update')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    actionFilter === 'update'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Edits
                 </button>
                 <button
                   type="button"
@@ -237,7 +255,14 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                         </td>
 
                         <td className="py-3 px-3 text-slate-700 dark:text-slate-300">
-                          {log.action === 'rename' ? (
+                          {log.action === 'update' ? (
+                            <div>
+                              <span className="font-medium text-slate-600 dark:text-slate-400">Edited fields: </span>
+                              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                {Object.keys(log.details?.changed_fields || {}).join(', ') || 'Resource details'}
+                              </span>
+                            </div>
+                          ) : log.action === 'rename' ? (
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-medium line-through text-slate-400">
                                 {log.oldValue}

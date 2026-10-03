@@ -119,7 +119,6 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
       const { data, error } = await this.client.rpc('rename_catalog_product', {
         p_old_name: oldName,
         p_new_name: newName,
-        p_agent_name: agent,
       });
 
       if (error) {
@@ -168,7 +167,6 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
    */
   async addProduct(payload: CreateProductPayload): Promise<CatalogProduct> {
     const name = sanitizeCatalogProductName(payload.name);
-    const agent = payload.agentName ? formatAgentDisplayName(payload.agentName) : 'Team Lead';
     const displayOrder = payload.displayOrder ?? 0;
     const isActive = payload.isActive ?? true;
 
@@ -211,21 +209,6 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
         throw new Error(error.message);
       }
 
-      // 2. Record audit log
-      try {
-        await this.client.from('catalog_audit_logs').insert([
-          {
-            catalog_type: 'product',
-            action: 'create',
-            new_value: name,
-            performed_by: agent,
-            details: { product_id: data.id },
-          },
-        ]);
-      } catch (auditErr) {
-        console.warn('[catalogRepo] Audit log notice on product add:', auditErr);
-      }
-
       return {
         id: data.id,
         name: data.name,
@@ -240,20 +223,10 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
   /**
    * Toggles product active state.
    */
-  async toggleProductActive(id: string, isActive: boolean, agentName?: string): Promise<void> {
+  async toggleProductActive(id: string, isActive: boolean, _agentName?: string): Promise<void> {
     if (!this.isConfigured) return;
 
-    const agent = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
-
     await withNetworkRetry(async () => {
-      // 1. Fetch current product name for audit
-      const { data: current } = await this.client
-        .from('catalog_products')
-        .select('name')
-        .eq('id', id)
-        .maybeSingle();
-
-      // 2. Update status
       const { error } = await this.client
         .from('catalog_products')
         .update({ is_active: isActive })
@@ -264,21 +237,6 @@ export class SupabaseCatalogRepository implements ICatalogRepository {
         throw new Error(error.message);
       }
 
-      // 3. Log audit event
-      try {
-        await this.client.from('catalog_audit_logs').insert([
-          {
-            catalog_type: 'product',
-            action: 'toggle_active',
-            old_value: current?.name || id,
-            new_value: isActive ? 'active' : 'inactive',
-            performed_by: agent,
-            details: { product_id: id, is_active: isActive },
-          },
-        ]);
-      } catch (auditErr) {
-        console.warn('[catalogRepo] Audit log notice on toggleActive:', auditErr);
-      }
     });
   }
 

@@ -2,13 +2,12 @@
  * @file resourceAdminRepo.ts
  * @description Administrative repository for managing dynamic catalog resources
  * (Case Classifications, Installers, Marketing Folders, Quick Start Guides, Recommended Hardware, Manuals)
- * in Supabase PostgreSQL with automated audit logging.
+ * in Supabase PostgreSQL. Database triggers write audit records transactionally.
  */
 
 import { supabase, isSupabaseConfigured, withNetworkRetry } from './client';
 import { AdminResourceConfig } from '../../utils/adminResourceConfig';
 import { sanitizeResourcePayload, validateResourcePayload } from '../../utils/adminFormValidation';
-import { formatAgentDisplayName } from '../../domain/identity/policies';
 import { CatalogAuditLog } from '../../domain/catalog/types';
 import { generateUUID } from '../../utils/uuid';
 import {
@@ -56,15 +55,14 @@ export class ResourceAdminRepository {
   }
 
   /**
-   * Creates a new resource entry and writes an audit log record into catalog_audit_logs.
+   * Creates a resource entry. A database trigger writes its audit record atomically.
    */
   async createItem(
     config: AdminResourceConfig,
     values: Record<string, any>,
-    agentName: string
+    _agentName: string
   ): Promise<any> {
     const payload = this.buildResourcePayload(config, values);
-    const actor = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
 
     if (!isSupabaseConfigured) {
       return {
@@ -87,41 +85,20 @@ export class ResourceAdminRepository {
         throw new Error(error.message);
       }
 
-      // 2. Append audit log entry
-      try {
-        await supabase.from('catalog_audit_logs').insert([
-          {
-            catalog_type: config.catalogType,
-            action: 'create',
-            new_value: data.name || payload.name,
-            performed_by: actor,
-            details: {
-              id: data.id,
-              tableName: config.tableName,
-              url: payload.url,
-              category: payload.category || payload.categories,
-            },
-          },
-        ]);
-      } catch (auditErr: any) {
-        console.warn(`[resourceAdminRepo] Notice appending audit log for ${config.tableName}:`, auditErr?.message);
-      }
-
       return data;
     });
   }
 
   /**
-   * Toggles the active status of a resource entry and writes an audit log record into catalog_audit_logs.
+   * Toggles active status. A database trigger writes its audit record atomically.
    */
   async toggleActive(
     config: AdminResourceConfig,
     id: string,
-    name: string,
+    _name: string,
     isActive: boolean,
-    agentName: string
+    _agentName: string
   ): Promise<void> {
-    const actor = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
 
     if (!isSupabaseConfigured) return;
 
@@ -137,44 +114,23 @@ export class ResourceAdminRepository {
         throw new Error(error.message);
       }
 
-      // 2. Append audit log entry
-      try {
-        await supabase.from('catalog_audit_logs').insert([
-          {
-            catalog_type: config.catalogType,
-            action: 'toggle_active',
-            old_value: name,
-            new_value: isActive ? 'active' : 'inactive',
-            performed_by: actor,
-            details: {
-              id,
-              tableName: config.tableName,
-              is_active: isActive,
-            },
-          },
-        ]);
-      } catch (auditErr: any) {
-        console.warn(`[resourceAdminRepo] Notice appending audit log for ${config.tableName}:`, auditErr?.message);
-      }
     });
   }
 
   /**
-   * Updates an existing resource entry (updating all editable visible fields)
-   * and records an audit log entry in catalog_audit_logs.
+   * Updates an existing resource entry. A database trigger writes its audit record atomically.
    */
   async updateItem(
     config: AdminResourceConfig,
     id: string,
     values: Record<string, any>,
-    originalItem: any,
-    agentName: string
+    _originalItem: any,
+    _agentName: string
   ): Promise<any> {
     const payload = this.buildResourcePayload(config, values);
-    const actor = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
 
     if (!isSupabaseConfigured) {
-      return { id, ...originalItem, ...payload, updated_at: new Date().toISOString() };
+      return { id, ..._originalItem, ...payload, updated_at: new Date().toISOString() };
     }
 
     return await withNetworkRetry(async () => {
@@ -191,43 +147,20 @@ export class ResourceAdminRepository {
         throw new Error(error.message);
       }
 
-      // 2. Append audit log entry
-      try {
-        const isRenamed = originalItem?.name && payload.name && originalItem.name !== payload.name;
-        await supabase.from('catalog_audit_logs').insert([
-          {
-            catalog_type: config.catalogType,
-            action: isRenamed ? 'rename' : 'rename',
-            old_value: originalItem?.name || payload.name,
-            new_value: payload.name,
-            performed_by: actor,
-            details: {
-              id,
-              tableName: config.tableName,
-              updatedFields: Object.keys(values),
-              changes: values,
-            },
-          },
-        ]);
-      } catch (auditErr: any) {
-        console.warn(`[resourceAdminRepo] Notice appending audit log for ${config.tableName}:`, auditErr?.message);
-      }
-
       return data;
     });
   }
 
   /**
-   * Renames a resource entry and appends an audit log record into catalog_audit_logs.
+   * Renames a resource entry. A database trigger writes its audit record atomically.
    */
   async renameItem(
     config: AdminResourceConfig,
     id: string,
-    oldName: string,
+    _oldName: string,
     newName: string,
-    agentName: string
+    _agentName: string
   ): Promise<void> {
-    const actor = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
 
     if (!isSupabaseConfigured) return;
 
@@ -243,24 +176,6 @@ export class ResourceAdminRepository {
         throw new Error(error.message);
       }
 
-      // 2. Append audit log entry
-      try {
-        await supabase.from('catalog_audit_logs').insert([
-          {
-            catalog_type: config.catalogType,
-            action: 'rename',
-            old_value: oldName,
-            new_value: newName,
-            performed_by: actor,
-            details: {
-              id,
-              tableName: config.tableName,
-            },
-          },
-        ]);
-      } catch (auditErr: any) {
-        console.warn(`[resourceAdminRepo] Notice appending audit log for ${config.tableName}:`, auditErr?.message);
-      }
     });
   }
 
