@@ -67,8 +67,8 @@ export function validateResourcePayload(
     }
 
     // Check URL field format if provided
-    if (field.type === 'url' && val && typeof val === 'string' && val.trim().length > 0) {
-      if (!isValidHttpUrl(val)) {
+    if (field.type === 'url' && val !== undefined && val !== null && val !== '') {
+      if (typeof val !== 'string' || !isValidHttpUrl(val)) {
         errors[field.key] = 'Please enter a valid URL (starting with http:// or https://).';
       }
     }

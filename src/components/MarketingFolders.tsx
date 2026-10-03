@@ -15,6 +15,7 @@ import {
 import { MarketingResource } from '../infrastructure/supabase/configRepo';
 import { ResourceDirectory } from './common/ResourceDirectory';
 import { ExpandableDescription } from './common/ExpandableDescription';
+import { sanitizeExternalUrl } from '../utils/adminFormValidation';
 
 export interface MarketingResourceItem extends MarketingFolderItem {
   url: string;
@@ -90,7 +91,7 @@ export const MarketingFolders: React.FC<MarketingFoldersProps> = ({ resources, o
           {/* Actions: Open Drive & Copy Link */}
           <div className="pt-3.5 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
             <a
-              href={item.driveUrl || item.url}
+              href={sanitizeExternalUrl(item.driveUrl || item.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-fotoblue-50 dark:bg-fotoblue-950/60 hover:bg-fotoblue-600 hover:text-white text-fotoblue-700 dark:text-fotoblue-300 text-xs font-bold transition-all cursor-pointer group/btn"
@@ -100,7 +101,7 @@ export const MarketingFolders: React.FC<MarketingFoldersProps> = ({ resources, o
             </a>
 
             <button
-              onClick={() => copyLink(item.driveUrl || item.url, item.id)}
+              onClick={() => copyLink(sanitizeExternalUrl(item.driveUrl || item.url), item.id)}
               className={`inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                 isCopied
                   ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
@@ -153,7 +154,7 @@ export const MarketingFolders: React.FC<MarketingFoldersProps> = ({ resources, o
 
           <div className="flex items-center gap-2 self-end sm:self-center shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800 w-full sm:w-auto">
             <a
-              href={item.driveUrl || item.url}
+              href={sanitizeExternalUrl(item.driveUrl || item.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-fotoblue-50 dark:bg-fotoblue-950/60 hover:bg-fotoblue-600 hover:text-white text-fotoblue-700 dark:text-fotoblue-300 text-xs font-bold transition-all cursor-pointer group/btn"
@@ -163,7 +164,7 @@ export const MarketingFolders: React.FC<MarketingFoldersProps> = ({ resources, o
             </a>
 
             <button
-              onClick={() => copyLink(item.driveUrl || item.url, item.id)}
+              onClick={() => copyLink(sanitizeExternalUrl(item.driveUrl || item.url), item.id)}
               className={`inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                 isCopied
                   ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'

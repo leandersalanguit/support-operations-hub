@@ -7,7 +7,7 @@
 
 import { supabase, isSupabaseConfigured, withNetworkRetry } from './client';
 import { AdminResourceConfig } from '../../utils/adminResourceConfig';
-import { sanitizeResourcePayload } from '../../utils/adminFormValidation';
+import { sanitizeResourcePayload, validateResourcePayload } from '../../utils/adminFormValidation';
 import { formatAgentDisplayName } from '../../domain/identity/policies';
 import { CatalogAuditLog } from '../../domain/catalog/types';
 import { generateUUID } from '../../utils/uuid';
@@ -21,6 +21,14 @@ import {
 import { CASE_CLASSIFICATIONS } from '../../domain/interaction/types';
 
 export class ResourceAdminRepository {
+  private buildResourcePayload(config: AdminResourceConfig, values: Record<string, any>) {
+    const validation = validateResourcePayload(config, values);
+    if (!validation.isValid) {
+      throw new Error(Object.values(validation.errors).join(' '));
+    }
+    return sanitizeResourcePayload(config, values);
+  }
+
   /**
    * Fetches all entries (both active and inactive) for a resource table.
    * Local sample data is used only when Supabase is not configured. Query errors
@@ -55,7 +63,7 @@ export class ResourceAdminRepository {
     values: Record<string, any>,
     agentName: string
   ): Promise<any> {
-    const payload = sanitizeResourcePayload(config, values);
+    const payload = this.buildResourcePayload(config, values);
     const actor = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
 
     if (!isSupabaseConfigured) {
@@ -162,7 +170,7 @@ export class ResourceAdminRepository {
     originalItem: any,
     agentName: string
   ): Promise<any> {
-    const payload = sanitizeResourcePayload(config, values);
+    const payload = this.buildResourcePayload(config, values);
     const actor = agentName ? formatAgentDisplayName(agentName) : 'Team Lead';
 
     if (!isSupabaseConfigured) {
