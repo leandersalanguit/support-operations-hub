@@ -33,3 +33,8 @@ dist-ssr
 *.sql
 !*.example.sql
 google-sheets-v2-appscript.js
+
+# Agent & local assistant directories
+.agents/
+.agents
+

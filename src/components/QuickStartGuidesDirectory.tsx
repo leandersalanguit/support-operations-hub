@@ -8,6 +8,7 @@ import React from 'react';
 import { BookOpen, ExternalLink, Copy, Check, Clock, CheckSquare, Calendar, Zap, Award } from 'lucide-react';
 import { ResourceDirectory } from './common/ResourceDirectory';
 import { ExpandableDescription } from './common/ExpandableDescription';
+import { sanitizeExternalUrl } from '../utils/adminFormValidation';
 import {
   QuickStartGuideItem,
   QUICK_START_CATEGORIES,
@@ -136,7 +137,7 @@ export const QuickStartGuidesDirectory: React.FC<QuickStartGuidesDirectoryProps>
           {/* Action Buttons */}
           <div className="pt-3 mt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
             <a
-              href={item.guideUrl || item.url}
+              href={sanitizeExternalUrl(item.guideUrl || item.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-fotoblue-50 dark:bg-fotoblue-950/60 hover:bg-fotoblue-600 hover:text-white text-fotoblue-700 dark:text-fotoblue-300 text-xs font-bold transition-all cursor-pointer group/btn"
@@ -146,7 +147,7 @@ export const QuickStartGuidesDirectory: React.FC<QuickStartGuidesDirectoryProps>
             </a>
 
             <button
-              onClick={() => copyLink(item.guideUrl || item.url, item.id)}
+              onClick={() => copyLink(sanitizeExternalUrl(item.guideUrl || item.url), item.id)}
               className={`inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                 isCopied
                   ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
@@ -242,7 +243,7 @@ export const QuickStartGuidesDirectory: React.FC<QuickStartGuidesDirectoryProps>
           {/* Action Buttons */}
           <div className="flex items-center gap-2 self-end md:self-center shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800 w-full md:w-auto">
             <a
-              href={item.guideUrl || item.url}
+              href={sanitizeExternalUrl(item.guideUrl || item.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 md:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-fotoblue-50 dark:bg-fotoblue-950/60 hover:bg-fotoblue-600 hover:text-white text-fotoblue-700 dark:text-fotoblue-300 text-xs font-bold transition-all cursor-pointer group/btn"
@@ -252,7 +253,7 @@ export const QuickStartGuidesDirectory: React.FC<QuickStartGuidesDirectoryProps>
             </a>
 
             <button
-              onClick={() => copyLink(item.guideUrl || item.url, item.id)}
+              onClick={() => copyLink(sanitizeExternalUrl(item.guideUrl || item.url), item.id)}
               className={`inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                 isCopied
                   ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'

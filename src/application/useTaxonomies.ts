@@ -60,6 +60,14 @@ export const TaxonomyProvider: React.FC<TaxonomyProviderProps> = ({ children, us
   const userId = user?.id || null;
 
   const loadTaxonomies = useCallback(async () => {
+    // The app requires sign-in; avoid unauthenticated Data API requests because
+    // the anon database role has no table access.
+    if (isSupabaseConfigured && !userId) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const [
         prodList,
@@ -101,15 +109,15 @@ export const TaxonomyProvider: React.FC<TaxonomyProviderProps> = ({ children, us
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    loadTaxonomies();
+    void loadTaxonomies();
   }, [loadTaxonomies, userId]);
 
   // Realtime subscription for catalog product changes with strict unmount teardown
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !userId) return;
 
     let isMounted = true;
     const channel = supabase
