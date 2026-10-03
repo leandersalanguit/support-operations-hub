@@ -51,12 +51,12 @@ const PRODUCT_LINKS_SUBITEMS: SubmenuOption[] = [
 
 const ADMIN_DASHBOARD_SUBITEMS: SubmenuOption[] = [
   { key: 'admin-product-catalog', label: 'Product Catalog', icon: Package },
-  { key: 'admin-case-classifications', label: 'Case Classifications', icon: Tags, badge: 'WIP' },
-  { key: 'admin-installers', label: 'Installers', icon: Download, badge: 'WIP' },
-  { key: 'admin-marketing-folders', label: 'Marketing Folders', icon: FolderOpen, badge: 'WIP' },
-  { key: 'admin-quick-start-guides', label: 'Quick Start Guides', icon: BookOpen, badge: 'WIP' },
-  { key: 'admin-recommended-hardware', label: 'Recommended Hardware', icon: Cpu, badge: 'WIP' },
-  { key: 'admin-manuals', label: 'Manuals', icon: FileText, badge: 'WIP' },
+  { key: 'admin-case-classifications', label: 'Case Classifications', icon: Tags },
+  { key: 'admin-installers', label: 'Installers', icon: Download },
+  { key: 'admin-marketing-folders', label: 'Marketing Folders', icon: FolderOpen },
+  { key: 'admin-quick-start-guides', label: 'Quick Start Guides', icon: BookOpen },
+  { key: 'admin-recommended-hardware', label: 'Recommended Hardware', icon: Cpu },
+  { key: 'admin-manuals', label: 'Manuals', icon: FileText },
   { key: 'admin-renewal-links', label: 'Renewal Links', icon: RefreshCw, badge: 'WIP' },
 ];
 

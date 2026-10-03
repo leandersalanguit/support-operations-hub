@@ -63,7 +63,6 @@ describe('SupabaseCatalogRepository', () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith('rename_catalog_product', {
       p_old_name: 'Old Model',
       p_new_name: 'New Model',
-      p_agent_name: 'Jane D.',
     });
     expect(res.success).toBe(true);
     expect(res.oldName).toBe('Old Model');
