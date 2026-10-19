@@ -50,7 +50,7 @@ export const RecommendedHardwareDirectory: React.FC<RecommendedHardwareDirectory
   hardware,
   onNavigateToSummary,
 }) => {
-  const items = hardware && hardware.length > 0 ? hardware : RECOMMENDED_HARDWARE;
+  const items = hardware ?? RECOMMENDED_HARDWARE;
 
   return (
     <ResourceDirectory<RecommendedHardwareItem>

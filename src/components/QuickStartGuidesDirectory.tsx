@@ -53,7 +53,7 @@ export const QuickStartGuidesDirectory: React.FC<QuickStartGuidesDirectoryProps>
   guides,
   onNavigateToSummary,
 }) => {
-  const items = guides && guides.length > 0 ? guides : QUICK_START_GUIDES;
+  const items = guides ?? QUICK_START_GUIDES;
 
   return (
     <ResourceDirectory<QuickStartGuideItem>

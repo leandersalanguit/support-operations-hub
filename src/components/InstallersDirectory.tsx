@@ -20,7 +20,7 @@ export const InstallersDirectory: React.FC<InstallersDirectoryProps> = ({
   installers,
   onNavigateToSummary,
 }) => {
-  const items = installers && installers.length > 0 ? installers : INSTALLERS;
+  const items = installers ?? INSTALLERS;
 
   return (
     <ResourceDirectory<InstallerItem>

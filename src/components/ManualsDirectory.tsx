@@ -20,7 +20,7 @@ export const ManualsDirectory: React.FC<ManualsDirectoryProps> = ({
   manuals,
   onNavigateToSummary,
 }) => {
-  const items = manuals && manuals.length > 0 ? manuals : MANUALS;
+  const items = manuals ?? MANUALS;
 
   return (
     <ResourceDirectory<ManualItem>

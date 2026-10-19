@@ -5,7 +5,7 @@
  * Features live Supabase sync, in-place item renaming, status toggling, audit history, and schema-driven entry creation.
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -51,6 +51,7 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
   const [itemToEdit, setItemToEdit] = useState<any | null>(null);
   const [itemToToggle, setItemToToggle] = useState<any | null>(null);
   const [isTogglingStatus, setIsTogglingStatus] = useState<boolean>(false);
+  const statusToggleInFlight = useRef(false);
 
   // Audit logs state
   const [auditLogs, setAuditLogs] = useState<CatalogAuditLog[]>([]);
@@ -155,16 +156,12 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
    * Handles toggling item active status
    */
   const handleConfirmToggle = async () => {
-    if (!itemToToggle) return;
+    if (!itemToToggle || statusToggleInFlight.current) return;
+    statusToggleInFlight.current = true;
     setIsTogglingStatus(true);
     try {
       const actor = currentAgentName || 'Team Lead';
       const newStatus = !itemToToggle.is_active;
-
-      // Optimistic UI update
-      setItems((prev) =>
-        prev.map((it) => (it.id === itemToToggle.id ? { ...it, is_active: newStatus } : it))
-      );
 
       await resourceAdminRepo.toggleActive(
         config,
@@ -188,6 +185,7 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
       console.error('[AdminResourceTableView] Failed to toggle status:', err);
       setError(err?.message || 'Failed to update item status.');
     } finally {
+      statusToggleInFlight.current = false;
       setIsTogglingStatus(false);
     }
   };
@@ -490,6 +488,7 @@ export const AdminResourceTableView: React.FC<AdminResourceTableViewProps> = ({
         }
         cancelText="Cancel"
         variant={itemToToggle?.is_active ? 'danger' : 'info'}
+        isLoading={isTogglingStatus}
       />
     </div>
   );

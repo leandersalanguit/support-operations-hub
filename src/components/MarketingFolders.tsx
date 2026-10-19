@@ -27,9 +27,9 @@ interface MarketingFoldersProps {
 }
 
 export const MarketingFolders: React.FC<MarketingFoldersProps> = ({ resources, onNavigateToSummary }) => {
-  // Map dynamic resources if provided, otherwise fallback to local static data
+  // Map dynamic resources if provided, otherwise use local static data.
   const folderItems: MarketingResourceItem[] = useMemo(() => {
-    if (resources && resources.length > 0) {
+    if (resources !== undefined) {
       return resources.map((r: any) => ({
         id: r.id,
         name: r.name || r.title || 'Resource',

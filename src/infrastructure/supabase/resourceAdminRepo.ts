@@ -215,8 +215,8 @@ export class ResourceAdminRepository {
       const { data, error } = await query;
 
       if (error) {
-        console.warn('[resourceAdminRepo] Warning querying catalog_audit_logs:', error.message);
-        return [];
+        console.error('[resourceAdminRepo] Error querying catalog_audit_logs:', error);
+        throw new Error(`Failed to load audit logs: ${error.message}`);
       }
 
       return (data || []).map((row: any) => ({
