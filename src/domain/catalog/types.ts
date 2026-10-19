@@ -13,7 +13,7 @@ export interface CatalogProduct {
   interactionCount?: number;
 }
 
-export type CatalogActionType = 'create' | 'rename' | 'toggle_active' | 'reorder' | 'delete';
+export type CatalogActionType = 'create' | 'rename' | 'update' | 'toggle_active' | 'reorder' | 'delete';
 
 export interface CatalogAuditLog {
   id: string;

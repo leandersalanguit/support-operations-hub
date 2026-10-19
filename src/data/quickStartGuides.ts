@@ -16,7 +16,7 @@ export type DifficultyLevel = 'Beginner' | 'Intermediate' | 'Advanced';
 
 export interface QuickStartGuideItem extends BaseResourceItem<QuickStartCategory> {
   estimatedTime: string;
-  difficulty: DifficultyLevel;
+  difficulty: DifficultyLevel | null;
   compatibleProducts: string[];
   lastUpdated: string;
   stepsCount?: number;

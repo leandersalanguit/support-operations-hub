@@ -48,9 +48,7 @@ export const DEFAULT_SUPPORT_TIERS: SupportTier[] = [
 ];
 
 export class SupabaseConfigRepository {
-  /**
-   * Fetches active commercial products. Falls back to domain catalog if offline or empty.
-   */
+  /** Fetches active commercial products. */
   async getProducts(): Promise<string[]> {
     if (!isSupabaseConfigured) return [...CLIENT_PRODUCTS];
 
@@ -65,23 +63,20 @@ export class SupabaseConfigRepository {
 
         if (error) {
           console.warn('[configRepo] Warning: Failed to query catalog_products from Supabase:', error.message);
+          throw error;
         }
 
-        if (error || !data || data.length === 0) {
-          return [...CLIENT_PRODUCTS];
-        }
+        if (!data) return [];
 
         return data.map((p) => p.name);
       });
     } catch (err: any) {
       console.warn('[configRepo] Exception in getProducts():', err?.message || err);
-      return [...CLIENT_PRODUCTS];
+      throw err;
     }
   }
 
-  /**
-   * Fetches active case classifications. Falls back to domain list if offline or empty.
-   */
+  /** Fetches active case classifications. */
   async getClassifications(): Promise<string[]> {
     if (!isSupabaseConfigured) return [...CASE_CLASSIFICATIONS];
 
@@ -96,23 +91,22 @@ export class SupabaseConfigRepository {
 
         if (error) {
           console.warn('[configRepo] Warning: Failed to query case_classifications from Supabase:', error.message);
+          throw error;
         }
 
-        if (error || !data || data.length === 0) {
-          return [...CASE_CLASSIFICATIONS];
-        }
+        if (!data) return [];
 
         return data.map((c) => c.name);
       });
     } catch (err: any) {
       console.warn('[configRepo] Exception in getClassifications():', err?.message || err);
-      return [...CASE_CLASSIFICATIONS];
+      throw err;
     }
   }
 
   /**
    * Fetches active marketing resources / drive links.
-   * Falls back to local static marketing folders if unconfigured, error, or table is empty.
+   * Uses local static marketing folders only when Supabase is not configured.
    */
   async getMarketingResources(): Promise<MarketingResource[]> {
     if (!isSupabaseConfigured) return [...MARKETING_FALLBACK_RESOURCES];
@@ -127,22 +121,21 @@ export class SupabaseConfigRepository {
 
         if (error) {
           console.warn('[configRepo] Warning: Failed to query marketing_resources from Supabase:', error.message);
+          throw error;
         }
 
-        if (error || !data || data.length === 0) {
-          return [...MARKETING_FALLBACK_RESOURCES];
-        }
+        if (!data) return [];
         return data as MarketingResource[];
       });
     } catch (err: any) {
       console.warn('[configRepo] Exception in getMarketingResources():', err?.message || err);
-      return [...MARKETING_FALLBACK_RESOURCES];
+      throw err;
     }
   }
 
   /**
    * Fetches active product installers.
-   * Falls back to local static mock installers if unconfigured, query fails, or table is empty.
+   * Uses local static mock installers only when Supabase is not configured.
    */
   async getInstallers(): Promise<InstallerItem[]> {
     if (!isSupabaseConfigured) return [...INSTALLERS];
@@ -157,11 +150,10 @@ export class SupabaseConfigRepository {
 
         if (error) {
           console.warn('[configRepo] Warning: Failed to query installers from Supabase:', error.message);
+          throw error;
         }
 
-        if (error || !data || data.length === 0) {
-          return [...INSTALLERS];
-        }
+        if (!data) return [];
 
         return data.map((d: any) => ({
           id: d.id,
@@ -180,13 +172,13 @@ export class SupabaseConfigRepository {
       });
     } catch (err: any) {
       console.warn('[configRepo] Exception in getInstallers():', err?.message || err);
-      return [...INSTALLERS];
+      throw err;
     }
   }
 
   /**
    * Fetches active recommended hardware entries.
-   * Falls back to local static mock hardware list if unconfigured, query fails, or table is empty.
+   * Uses local static mock hardware only when Supabase is not configured.
    */
   async getRecommendedHardware(): Promise<RecommendedHardwareItem[]> {
     if (!isSupabaseConfigured) return [...RECOMMENDED_HARDWARE];
@@ -201,11 +193,10 @@ export class SupabaseConfigRepository {
 
         if (error) {
           console.warn('[configRepo] Warning: Failed to query recommended_hardware from Supabase:', error.message);
+          throw error;
         }
 
-        if (error || !data || data.length === 0) {
-          return [...RECOMMENDED_HARDWARE];
-        }
+        if (!data) return [];
 
         return data.map((d: any) => ({
           id: d.id,
@@ -223,13 +214,13 @@ export class SupabaseConfigRepository {
       });
     } catch (err: any) {
       console.warn('[configRepo] Exception in getRecommendedHardware():', err?.message || err);
-      return [...RECOMMENDED_HARDWARE];
+      throw err;
     }
   }
 
   /**
    * Fetches active product manuals.
-   * Falls back to local static mock manuals if unconfigured, query fails, or table is empty.
+   * Uses local static mock manuals only when Supabase is not configured.
    */
   async getManuals(): Promise<ManualItem[]> {
     if (!isSupabaseConfigured) return [...MANUALS];
@@ -244,11 +235,10 @@ export class SupabaseConfigRepository {
 
         if (error) {
           console.warn('[configRepo] Warning: Failed to query manuals from Supabase:', error.message);
+          throw error;
         }
 
-        if (error || !data || data.length === 0) {
-          return [...MANUALS];
-        }
+        if (!data) return [];
 
         return data.map((d: any) => ({
           id: d.id,
@@ -267,13 +257,13 @@ export class SupabaseConfigRepository {
       });
     } catch (err: any) {
       console.warn('[configRepo] Exception in getManuals():', err?.message || err);
-      return [...MANUALS];
+      throw err;
     }
   }
 
   /**
    * Fetches active quick start guides.
-   * Falls back to local static mock guides if unconfigured, query fails, or table is empty.
+   * Uses local static mock guides only when Supabase is not configured.
    */
   async getQuickStartGuides(): Promise<QuickStartGuideItem[]> {
     if (!isSupabaseConfigured) return [...QUICK_START_GUIDES];
@@ -288,18 +278,17 @@ export class SupabaseConfigRepository {
 
         if (error) {
           console.warn('[configRepo] Warning: Failed to query quick_start_guides from Supabase:', error.message);
+          throw error;
         }
 
-        if (error || !data || data.length === 0) {
-          return [...QUICK_START_GUIDES];
-        }
+        if (!data) return [];
 
         return data.map((d: any) => ({
           id: d.id,
           name: d.name,
           categories: Array.isArray(d.categories) ? d.categories : [],
           estimatedTime: d.estimated_time || '',
-          difficulty: d.difficulty || 'Beginner',
+          difficulty: d.difficulty ?? null,
           compatibleProducts: Array.isArray(d.compatible_products) ? d.compatible_products : [],
           stepsCount: typeof d.steps_count === 'number' ? d.steps_count : undefined,
           url: d.url || d.guide_url || '#',
@@ -310,7 +299,7 @@ export class SupabaseConfigRepository {
       });
     } catch (err: any) {
       console.warn('[configRepo] Exception in getQuickStartGuides():', err?.message || err);
-      return [...QUICK_START_GUIDES];
+      throw err;
     }
   }
 
@@ -330,11 +319,10 @@ export class SupabaseConfigRepository {
 
         if (error) {
           console.warn('[configRepo] Warning: Failed to query support_tiers from Supabase:', error.message);
+          throw error;
         }
 
-        if (error || !data || data.length === 0) {
-          return [...DEFAULT_SUPPORT_TIERS];
-        }
+        if (!data) return [];
 
         return data.map((d: any) => ({
           id: d.id,
@@ -346,7 +334,7 @@ export class SupabaseConfigRepository {
       });
     } catch (err: any) {
       console.warn('[configRepo] Exception in getSupportTiers():', err?.message || err);
-      return [...DEFAULT_SUPPORT_TIERS];
+      throw err;
     }
   }
 }

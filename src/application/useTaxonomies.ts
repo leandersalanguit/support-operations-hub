@@ -49,17 +49,25 @@ export interface TaxonomyProviderProps {
 export const TaxonomyProvider: React.FC<TaxonomyProviderProps> = ({ children, user }) => {
   const [products, setProducts] = useState<string[]>(() => (isSupabaseConfigured ? [] : [...CLIENT_PRODUCTS]));
   const [classifications, setClassifications] = useState<string[]>(() => (isSupabaseConfigured ? [] : [...CASE_CLASSIFICATIONS]));
-  const [marketingResources, setMarketingResources] = useState<MarketingResource[]>([...MARKETING_FALLBACK_RESOURCES]);
-  const [installers, setInstallers] = useState<InstallerItem[]>([...INSTALLERS]);
-  const [recommendedHardware, setRecommendedHardware] = useState<RecommendedHardwareItem[]>([...RECOMMENDED_HARDWARE]);
-  const [manuals, setManuals] = useState<ManualItem[]>([...MANUALS]);
-  const [quickStartGuides, setQuickStartGuides] = useState<QuickStartGuideItem[]>([...QUICK_START_GUIDES]);
-  const [supportTiers, setSupportTiers] = useState<SupportTier[]>([...DEFAULT_SUPPORT_TIERS]);
+  const [marketingResources, setMarketingResources] = useState<MarketingResource[]>(() => (isSupabaseConfigured ? [] : [...MARKETING_FALLBACK_RESOURCES]));
+  const [installers, setInstallers] = useState<InstallerItem[]>(() => (isSupabaseConfigured ? [] : [...INSTALLERS]));
+  const [recommendedHardware, setRecommendedHardware] = useState<RecommendedHardwareItem[]>(() => (isSupabaseConfigured ? [] : [...RECOMMENDED_HARDWARE]));
+  const [manuals, setManuals] = useState<ManualItem[]>(() => (isSupabaseConfigured ? [] : [...MANUALS]));
+  const [quickStartGuides, setQuickStartGuides] = useState<QuickStartGuideItem[]>(() => (isSupabaseConfigured ? [] : [...QUICK_START_GUIDES]));
+  const [supportTiers, setSupportTiers] = useState<SupportTier[]>(() => (isSupabaseConfigured ? [] : [...DEFAULT_SUPPORT_TIERS]));
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const userId = user?.id || null;
 
   const loadTaxonomies = useCallback(async () => {
+    // The app requires sign-in; avoid unauthenticated Data API requests because
+    // the anon database role has no table access.
+    if (isSupabaseConfigured && !userId) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
     try {
       const [
         prodList,
@@ -81,35 +89,28 @@ export const TaxonomyProvider: React.FC<TaxonomyProviderProps> = ({ children, us
         configRepo.getSupportTiers(),
       ]);
 
-      if (prodList && prodList.length > 0) setProducts(prodList);
-      if (classList && classList.length > 0) setClassifications(classList);
-      if (resources && resources.length > 0) setMarketingResources(resources);
-      if (installerList && installerList.length > 0) setInstallers(installerList);
-      if (hardwareList && hardwareList.length > 0) setRecommendedHardware(hardwareList);
-      if (manualList && manualList.length > 0) setManuals(manualList);
-      if (guideList && guideList.length > 0) setQuickStartGuides(guideList);
-      if (tiers && tiers.length > 0) setSupportTiers(tiers);
+      setProducts(prodList);
+      setClassifications(classList);
+      setMarketingResources(resources);
+      setInstallers(installerList);
+      setRecommendedHardware(hardwareList);
+      setManuals(manualList);
+      setQuickStartGuides(guideList);
+      setSupportTiers(tiers);
     } catch (err) {
-      console.warn('[useTaxonomies] Notice: Failed to fetch dynamic taxonomies from cloud, using cached defaults:', err);
-      setProducts((prev) => (prev.length > 0 ? prev : [...CLIENT_PRODUCTS]));
-      setClassifications((prev) => (prev.length > 0 ? prev : [...CASE_CLASSIFICATIONS]));
-      setMarketingResources((prev) => (prev.length > 0 ? prev : [...MARKETING_FALLBACK_RESOURCES]));
-      setInstallers((prev) => (prev.length > 0 ? prev : [...INSTALLERS]));
-      setRecommendedHardware((prev) => (prev.length > 0 ? prev : [...RECOMMENDED_HARDWARE]));
-      setManuals((prev) => (prev.length > 0 ? prev : [...MANUALS]));
-      setQuickStartGuides((prev) => (prev.length > 0 ? prev : [...QUICK_START_GUIDES]));
+      console.warn('[useTaxonomies] Notice: Failed to fetch dynamic taxonomies from cloud; retaining cached values:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    loadTaxonomies();
+    void loadTaxonomies();
   }, [loadTaxonomies, userId]);
 
   // Realtime subscription for catalog product changes with strict unmount teardown
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !userId) return;
 
     let isMounted = true;
     const channel = supabase
@@ -170,14 +171,14 @@ export function useTaxonomies(): TaxonomyContextValue {
   const context = useContext(TaxonomyContext);
   if (!context) {
     return {
-      products: [...CLIENT_PRODUCTS],
-      classifications: [...CASE_CLASSIFICATIONS],
-      marketingResources: [...MARKETING_FALLBACK_RESOURCES],
-      installers: [...INSTALLERS],
-      recommendedHardware: [...RECOMMENDED_HARDWARE],
-      manuals: [...MANUALS],
-      quickStartGuides: [...QUICK_START_GUIDES],
-      supportTiers: [...DEFAULT_SUPPORT_TIERS],
+      products: isSupabaseConfigured ? [] : [...CLIENT_PRODUCTS],
+      classifications: isSupabaseConfigured ? [] : [...CASE_CLASSIFICATIONS],
+      marketingResources: isSupabaseConfigured ? [] : [...MARKETING_FALLBACK_RESOURCES],
+      installers: isSupabaseConfigured ? [] : [...INSTALLERS],
+      recommendedHardware: isSupabaseConfigured ? [] : [...RECOMMENDED_HARDWARE],
+      manuals: isSupabaseConfigured ? [] : [...MANUALS],
+      quickStartGuides: isSupabaseConfigured ? [] : [...QUICK_START_GUIDES],
+      supportTiers: isSupabaseConfigured ? [] : [...DEFAULT_SUPPORT_TIERS],
       isLoading: false,
       refreshTaxonomies: async () => {},
     };

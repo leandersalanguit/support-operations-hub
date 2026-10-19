@@ -16,7 +16,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { CatalogAuditLog } from '../../domain/catalog/types';
-import { formatDateDisplay, formatTimeDisplay } from '../../utils/date';
+import { formatTimeDisplay } from '../../utils/date';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '../common/Modal';
 
 export interface CatalogAuditLogModalProps {
@@ -37,7 +37,7 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
   onRefresh,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [actionFilter, setActionFilter] = useState<'all' | 'rename' | 'create' | 'toggle_active'>('all');
+  const [actionFilter, setActionFilter] = useState<'all' | 'rename' | 'update' | 'create' | 'toggle_active'>('all');
 
   const filteredLogs = useMemo(() => {
     return auditLogs.filter((log) => {
@@ -65,6 +65,13 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-fotoblue-50 dark:bg-fotoblue-950/60 text-fotoblue-700 dark:text-fotoblue-300 border border-fotoblue-200/60 dark:border-fotoblue-800/60">
             <FileEdit className="w-3 h-3" />
             Rename
+          </span>
+        );
+      case 'update':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60">
+            <FileEdit className="w-3 h-3" />
+            Edited
           </span>
         );
       case 'create':
@@ -110,6 +117,7 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search product, agent, or note..."
+                aria-label="Search audit history"
                 className="w-full pl-9 pr-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-fotoblue-500/20"
               />
             </div>
@@ -140,6 +148,17 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActionFilter('update')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    actionFilter === 'update'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Edits
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActionFilter('create')}
                   className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
                     actionFilter === 'create'
@@ -149,6 +168,17 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                 >
                   Created
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActionFilter('toggle_active')}
+                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+                    actionFilter === 'toggle_active'
+                      ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  }`}
+                >
+                  Status Toggles
+                </button>
               </div>
 
               <button
@@ -156,6 +186,7 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                 onClick={onRefresh}
                 disabled={isLoading}
                 title="Refresh audit logs"
+                aria-label="Refresh audit logs"
                 className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -171,12 +202,12 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
 
           {/* Logs table */}
           {isLoading && auditLogs.length === 0 ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-400">
+            <div role="status" aria-busy="true" className="py-12 flex flex-col items-center justify-center text-slate-400">
               <Loader2 className="w-6 h-6 animate-spin text-fotoblue-500 mb-2" />
               <p className="text-xs font-medium">Loading audit history...</p>
             </div>
           ) : filteredLogs.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 dark:text-slate-500">
+            <div role="status" className="py-12 text-center text-slate-400 dark:text-slate-500">
               <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
               <p className="text-xs font-semibold">No audit entries found.</p>
               <p className="text-[11px] mt-1">
@@ -185,21 +216,27 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
             </div>
           ) : (
             <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs bg-white dark:bg-slate-900">
-              <table className="w-full text-left border-collapse text-xs">
+              <table aria-label="Catalog Change Audit Log Table" className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    <th className="py-2.5 px-3">Timestamp</th>
-                    <th className="py-2.5 px-3">Action</th>
-                    <th className="py-2.5 px-3">Transformation / Values</th>
-                    <th className="py-2.5 px-3">Cascade Impact</th>
-                    <th className="py-2.5 px-3">Agent</th>
+                    <th scope="col" className="py-2.5 px-3">Timestamp</th>
+                    <th scope="col" className="py-2.5 px-3">Action</th>
+                    <th scope="col" className="py-2.5 px-3">Transformation / Values</th>
+                    <th scope="col" className="py-2.5 px-3">Cascade Impact</th>
+                    <th scope="col" className="py-2.5 px-3">Agent</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredLogs.map((log) => {
                     const rawDate = log.createdAt ? new Date(log.createdAt) : null;
-                    const dateStr = rawDate ? formatDateDisplay(rawDate.toISOString().slice(0, 10)) : '—';
-                    const timeStr = rawDate ? formatTimeDisplay(rawDate.toTimeString().slice(0, 5)) : '—';
+                    const dateStr = rawDate
+                      ? rawDate.toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                      : '—';
+                    const timeStr = log.createdAt ? formatTimeDisplay(log.createdAt) : '—';
 
                     return (
                       <tr
@@ -218,7 +255,14 @@ export const CatalogAuditLogModal: React.FC<CatalogAuditLogModalProps> = ({
                         </td>
 
                         <td className="py-3 px-3 text-slate-700 dark:text-slate-300">
-                          {log.action === 'rename' ? (
+                          {log.action === 'update' ? (
+                            <div>
+                              <span className="font-medium text-slate-600 dark:text-slate-400">Edited fields: </span>
+                              <span className="font-semibold text-slate-800 dark:text-slate-200">
+                                {Object.keys(log.details?.changed_fields || {}).join(', ') || 'Resource details'}
+                              </span>
+                            </div>
+                          ) : log.action === 'rename' ? (
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-medium line-through text-slate-400">
                                 {log.oldValue}
