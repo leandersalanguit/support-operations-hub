@@ -20,12 +20,28 @@ import {
 import { CASE_CLASSIFICATIONS } from '../../domain/interaction/types';
 
 export class ResourceAdminRepository {
-  private buildResourcePayload(config: AdminResourceConfig, values: Record<string, any>) {
+  private buildResourcePayload(
+    config: AdminResourceConfig,
+    values: Record<string, any>,
+    mode: 'create' | 'update' = 'create'
+  ) {
     const validation = validateResourcePayload(config, values);
     if (!validation.isValid) {
       throw new Error(Object.values(validation.errors).join(' '));
     }
-    return sanitizeResourcePayload(config, values);
+    const payload = sanitizeResourcePayload(config, values, mode);
+    const directoryLinkFields: Record<string, string> = {
+      installers: 'download_url',
+      manuals: 'file_url',
+      quick_start_guides: 'guide_url',
+    };
+
+    const linkField = directoryLinkFields[config.tableName];
+    if (linkField && payload.url !== undefined) {
+      payload[linkField] = payload.url;
+    }
+
+    return payload;
   }
 
   /**
@@ -127,7 +143,7 @@ export class ResourceAdminRepository {
     _originalItem: any,
     _agentName: string
   ): Promise<any> {
-    const payload = this.buildResourcePayload(config, values);
+    const payload = this.buildResourcePayload(config, values, 'update');
 
     if (!isSupabaseConfigured) {
       return { id, ..._originalItem, ...payload, updated_at: new Date().toISOString() };

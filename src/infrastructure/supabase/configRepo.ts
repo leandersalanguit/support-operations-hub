@@ -299,7 +299,7 @@ export class SupabaseConfigRepository {
           name: d.name,
           categories: Array.isArray(d.categories) ? d.categories : [],
           estimatedTime: d.estimated_time || '',
-          difficulty: d.difficulty || 'Beginner',
+          difficulty: d.difficulty ?? null,
           compatibleProducts: Array.isArray(d.compatible_products) ? d.compatible_products : [],
           stepsCount: typeof d.steps_count === 'number' ? d.steps_count : undefined,
           url: d.url || d.guide_url || '#',

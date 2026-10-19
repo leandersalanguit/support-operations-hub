@@ -255,7 +255,7 @@ export const ADMIN_RESOURCE_CONFIGS: Record<AdminResourceKey, AdminResourceConfi
         label: 'Difficulty Level',
         type: 'select',
         required: false,
-        defaultValue: '',
+        defaultValue: null,
         options: ['Beginner', 'Intermediate', 'Advanced'],
       },
       {

@@ -94,14 +94,21 @@ export function validateResourcePayload(
  */
 export function sanitizeResourcePayload(
   config: AdminResourceConfig,
-  values: Record<string, any>
+  values: Record<string, any>,
+  mode: 'create' | 'update' = 'create'
 ): Record<string, any> {
   const sanitized: Record<string, any> = {};
 
   for (const field of config.fields) {
     const val = values[field.key];
 
-    if (field.type === 'tags') {
+    if (
+      field.type === 'select' &&
+      !field.required &&
+      (val === undefined || val === null || (typeof val === 'string' && !val.trim()))
+    ) {
+      sanitized[field.key] = field.defaultValue ?? null;
+    } else if (field.type === 'tags') {
       if (Array.isArray(val)) {
         sanitized[field.key] = val.filter((t) => typeof t === 'string' && t.trim().length > 0);
       } else {
@@ -123,8 +130,11 @@ export function sanitizeResourcePayload(
     }
   }
 
-  // Ensure is_active is enabled by default on new items
-  if (sanitized.is_active === undefined) {
+  // Status changes use the dedicated toggle, so edits must not submit status.
+  if (mode === 'update') {
+    delete sanitized.is_active;
+  // New items are active by default.
+  } else if (sanitized.is_active === undefined) {
     sanitized.is_active = true;
   }
 

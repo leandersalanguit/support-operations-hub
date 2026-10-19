@@ -21,7 +21,9 @@ interface QuickStartGuidesDirectoryProps {
   onNavigateToSummary: () => void;
 }
 
-function getDifficultyBadge(difficulty: DifficultyLevel) {
+function getDifficultyBadge(difficulty: DifficultyLevel | null | undefined) {
+  if (!difficulty) return null;
+
   switch (difficulty) {
     case 'Beginner':
       return (
