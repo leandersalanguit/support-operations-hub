@@ -95,6 +95,31 @@ CREATE TABLE IF NOT EXISTS public.catalog_products (
   display_order INT DEFAULT 0
 );
 
+-- Legacy audit row with an Auth foreign key. The upgrade must retain its actor
+-- UUID when it removes the foreign key.
+CREATE TABLE IF NOT EXISTS public.catalog_audit_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  catalog_type TEXT NOT NULL DEFAULT 'product',
+  action TEXT NOT NULL CHECK (action IN ('create','rename','update','toggle_active','reorder','delete')),
+  old_value TEXT,
+  new_value TEXT,
+  details JSONB DEFAULT '{}'::jsonb,
+  performed_by TEXT NOT NULL,
+  performed_by_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password,
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+VALUES ('00000000-0000-0000-0000-000000000000',
+  '20000000-0000-4000-8000-000000000998', 'authenticated', 'authenticated',
+  'legacy-catalog-actor@example.test', '', now(), '{}', '{}', now(), now())
+ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.catalog_audit_logs
+  (id, action, new_value, details, performed_by, performed_by_id)
+VALUES ('20000000-0000-4000-8000-000000000997', 'create', 'Legacy fixture product',
+  '{"fixture":"legacy"}'::jsonb, 'Legacy fixture actor',
+  '20000000-0000-4000-8000-000000000998');
+
 CREATE TABLE IF NOT EXISTS public.catalog_classifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,
