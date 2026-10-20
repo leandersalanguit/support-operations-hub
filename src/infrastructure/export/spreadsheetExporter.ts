@@ -9,15 +9,16 @@ import { toSpreadsheetLabel } from '../../domain/interaction/license';
 import { SupportTier } from '../supabase/configRepo';
 import { getAgentFirstName, formatAgentDisplayName } from '../../domain/identity/policies';
 import { getHelpdeskName } from '../../utils/helpdesk';
+import type { Column } from 'write-excel-file/browser';
 
 /**
- * Sanitizes a spreadsheet cell to defend against CSV / Spreadsheet formula injection (OWASP CWE-1236).
- * Cells starting with =, +, -, @, \t, \r, or % are prefixed with a single quote.
+ * Makes formula-looking text literal in spreadsheet programs (OWASP CWE-1236).
+ * Check for formula prefixes after whitespace and control characters.
  */
 export function sanitizeSpreadsheetCell(value: string | undefined | null): string {
   if (!value) return '';
   const str = String(value);
-  if (/^\s*[=+\-@\t\r%]/.test(str)) {
+  if (/^[\s\u0000-\u001f\u007f]*[=+\-@]/.test(str)) {
     return `'${str}`;
   }
   return str;
@@ -93,27 +94,31 @@ export function formatInteractionForExcelClipboard(
   }
   const product = item.clientProduct || '';
   const classification = item.caseClassification || '';
-  const notes = (item.additionalNotes || '').replace(/[\r\n\t]+/g, ' ').trim();
+  const notes = item.additionalNotes || '';
   const status = item.status || '';
   const licenseValid = toSpreadsheetLabel(item.license || 'support_active', supportTiers);
   const eventCall = item.inEvent ? 'Yes' : 'No';
   const firstTime = item.firstTimeUser ? 'Yes' : 'No';
 
   return [
-    sanitizeSpreadsheetCell(formattedDate),
-    sanitizeSpreadsheetCell(day),
-    sanitizeSpreadsheetCell(agent),
-    sanitizeSpreadsheetCell(client),
-    sanitizeSpreadsheetCell(channel),
-    sanitizeSpreadsheetCell(details),
-    sanitizeSpreadsheetCell(product),
-    sanitizeSpreadsheetCell(classification),
-    sanitizeSpreadsheetCell(notes),
-    sanitizeSpreadsheetCell(status),
-    sanitizeSpreadsheetCell(licenseValid),
-    sanitizeSpreadsheetCell(eventCall),
-    sanitizeSpreadsheetCell(firstTime),
-  ].join('\t');
+    formattedDate,
+    day,
+    agent,
+    client,
+    channel,
+    details,
+    product,
+    classification,
+    notes,
+    status,
+    licenseValid,
+    eventCall,
+    firstTime,
+  ].map((value) => {
+    const literal = sanitizeSpreadsheetCell(value);
+    // Excel's quoted TSV cells preserve embedded delimiters and multiline notes.
+    return /[\t\r\n"]/.test(literal) ? `"${literal.replace(/"/g, '""')}"` : literal;
+  }).join('\t');
 }
 
 export function exportToCSV(
@@ -169,29 +174,16 @@ export async function exportToExcel(
 
   const writeXlsxFile = (await import('write-excel-file/browser')).default;
 
-  const schema = [
-    { column: 'Date & Day', type: String, value: (row: Record<string, string>) => row['Date & Day'] || '', width: 22 },
-    { column: 'Time', type: String, value: (row: Record<string, string>) => row['Time'] || '', width: 14 },
-    { column: 'Agent', type: String, value: (row: Record<string, string>) => row['Agent'] || '', width: 18 },
-    { column: 'Client Name', type: String, value: (row: Record<string, string>) => row['Client Name'] || '', width: 25 },
-    { column: 'Channel', type: String, value: (row: Record<string, string>) => row['Channel'] || '', width: 14 },
-    { column: 'Channel Details', type: String, value: (row: Record<string, string>) => row['Channel Details'] || '', width: 22 },
-    { column: 'Client Product', type: String, value: (row: Record<string, string>) => row['Client Product'] || '', width: 18 },
-    { column: 'Case Classification', type: String, value: (row: Record<string, string>) => row['Case Classification'] || '', width: 24 },
-    { column: 'Status', type: String, value: (row: Record<string, string>) => row['Status'] || '', width: 20 },
-    { column: 'Support License Eligibility', type: String, value: (row: Record<string, string>) => row['Support License Eligibility'] || '', width: 28 },
-    { column: 'In Event', type: String, value: (row: Record<string, string>) => row['In Event'] || '', width: 12 },
-    { column: 'First Time Using Product', type: String, value: (row: Record<string, string>) => row['First Time Using Product'] || '', width: 26 },
-    { column: 'Additional Notes', type: String, value: (row: Record<string, string>) => row['Additional Notes'] || '', width: 45 },
-  ];
-
-  await (writeXlsxFile as any)(rows, {
-    schema,
-    fileName: filename,
-    headerStyle: {
-      backgroundColor: '#1E293B',
-      color: '#FFFFFF',
-      fontWeight: 'bold',
-    },
-  });
+  const fields = [
+    ["Date & Day", 22], ["Time", 14], ["Agent", 18], ["Client Name", 25],
+    ["Channel", 14], ["Channel Details", 22], ["Client Product", 18],
+    ["Case Classification", 24], ["Status", 20], ["Support License Eligibility", 28],
+    ["In Event", 12], ["First Time Using Product", 26], ["Additional Notes", 45],
+  ] as const;
+  const columns: Column<Record<string, string>>[] = fields.map(([key, width]) => ({
+    header: { type: String, value: key, backgroundColor: "#1E293B", color: "#FFFFFF", fontWeight: "bold" },
+    cell: (row) => ({ type: String, value: row[key] ?? "" }),
+    width,
+  }));
+  await writeXlsxFile(rows, { columns }).toFile(filename);
 }

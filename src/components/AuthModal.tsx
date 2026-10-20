@@ -22,7 +22,6 @@ import {
 import { AppLogo } from './AppLogo';
 import { supabase, isSupabaseConfigured } from '../infrastructure/supabase/client';
 import { formatAgentDisplayName, normalizeAuthEmail } from '../domain';
-import { checkMustChangePassword } from '../application/useAuthWorkflow';
 import { checkPasswordBreach } from '../utils/passwordSecurity';
 import { MOCK_DEMO_PERSONAS } from '../data/mockDemoData';
 
@@ -31,8 +30,12 @@ interface AuthModalProps {
   user?: SupabaseUser | null;
   /** Whether the user is currently flagged as requiring a password change */
   isPasswordChangeRequired?: boolean;
+  isAccessUnavailable?: boolean;
   /** Callback when authentication or password update is completed successfully */
   onAuthSuccess: (agentName: string) => void;
+  /** Completes the password change through the trusted server function. */
+  onCompletePasswordChange: (newPassword: string) => Promise<void>;
+  onSignOut?: () => void;
   /** Optional callback to enter guest / demo mode */
   onEnterDemo?: (personaId: string) => void;
 }
@@ -40,7 +43,10 @@ interface AuthModalProps {
 export const AuthModal: React.FC<AuthModalProps> = ({
   user,
   isPasswordChangeRequired = false,
+  isAccessUnavailable = false,
   onAuthSuccess,
+  onCompletePasswordChange,
+  onSignOut,
   onEnterDemo,
 }) => {
   // Determine if public demo mode is available
@@ -103,11 +109,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
 
       if (data?.user) {
-        const mustChange = checkMustChangePassword(data.user);
         const name = formatAgentDisplayName(data.user.user_metadata?.name || data.user.email);
-        if (!mustChange) {
-          onAuthSuccess(name);
-        }
+        onAuthSuccess(name);
       }
     } catch (err: any) {
       console.error('Sign-in error:', err);
@@ -122,8 +125,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
    */
   const handleFirstTimePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPassword || newPassword.length < 8) {
-      setChangePasswordError('New password must be at least 8 characters long.');
+    if (!newPassword || newPassword.length < 12 || newPassword.length > 128) {
+      setChangePasswordError('New password must contain 12 to 128 characters.');
       return;
     }
 
@@ -146,22 +149,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      const { data, error } = await supabase.auth.updateUser({
-        password: newPassword,
-        data: {
-          must_change_password: false,
-          needs_password_reset: false,
-        },
-      });
-
-      if (error) {
-        setChangePasswordError(error.message || 'Failed to update password.');
-        setIsUpdatingPassword(false);
-        return;
-      }
+      await onCompletePasswordChange(newPassword);
 
       setChangePasswordSuccess(true);
-      const activeUser = data?.user || user;
+      const activeUser = user;
       const name = formatAgentDisplayName(activeUser?.user_metadata?.name || activeUser?.email);
 
       // Short delay to show success state before transitioning into the dashboard.
@@ -169,8 +160,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onAuthSuccess(name);
       }, 1000);
     } catch (err: any) {
-      console.error('Password update error:', err);
-      setChangePasswordError(err.message || 'An unexpected error occurred.');
+      setChangePasswordError(err.message || 'Password change is temporarily unavailable.');
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -239,7 +229,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 sm:p-8">
-          {isPasswordChangeRequired ? (
+          {isAccessUnavailable ? (
+            <div className="px-6 py-8 text-center">
+              <ShieldCheck className="mx-auto mb-3 h-9 w-9 text-amber-500" />
+              <h3 className="text-base font-bold">Staff access is unavailable</h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">Your account does not have active staff access. Contact your support administrator.</p>
+              {onSignOut && <button type="button" onClick={onSignOut} className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white dark:bg-white dark:text-slate-900">Sign out</button>}
+            </div>
+          ) : isPasswordChangeRequired ? (
             /* VIEW 1: Mandatory First-Time Password Reset */
             <form onSubmit={handleFirstTimePasswordChange} className="space-y-4">
               <div className="bg-fotoblue-50 dark:bg-fotoblue-950/50 border border-fotoblue-200 dark:border-fotoblue-800 rounded-2xl p-4 text-fotoblue-900 dark:text-fotoblue-200">
@@ -283,7 +280,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter at least 8 characters"
-                    minLength={8}
+                  minLength={12}
+                  maxLength={128}
                     className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-fotoblue-500 focus:bg-white dark:focus:bg-slate-800 transition-all"
                     disabled={isUpdatingPassword || changePasswordSuccess}
                     required

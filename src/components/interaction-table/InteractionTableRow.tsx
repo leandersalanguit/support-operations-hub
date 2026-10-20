@@ -35,8 +35,6 @@ export interface InteractionTableRowProps {
   currentUser?: any;
   /** Current user role */
   userRole?: UserRole;
-  /** Current agent display name */
-  currentAgentName?: string;
   /** Whether the additional notes are currently expanded */
   isNoteExpanded: boolean;
   /** Callback to toggle note expansion */
@@ -122,7 +120,6 @@ export const InteractionTableRow: React.FC<InteractionTableRowProps> = React.mem
   supportTiers,
   currentUser,
   userRole,
-  currentAgentName,
   isNoteExpanded,
   onToggleNoteExpand,
   onCopyRow,
@@ -135,7 +132,7 @@ export const InteractionTableRow: React.FC<InteractionTableRowProps> = React.mem
   const isLongNote =
     item.additionalNotes &&
     (item.additionalNotes.length > 115 || (item.additionalNotes.match(/\n/g) || []).length >= 3);
-  const canModify = canModifyInteractionPolicy(item.agent, currentUser, userRole, currentAgentName);
+  const canModify = canModifyInteractionPolicy(item.agentId, currentUser, userRole);
   const agentLabel = formatAgentDisplayName(item.agent) || item.agent || 'the authoring agent';
 
   return (

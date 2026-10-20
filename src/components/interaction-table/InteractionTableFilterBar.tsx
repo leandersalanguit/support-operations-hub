@@ -12,7 +12,6 @@ import {
   ArrowDown,
   ArrowUp,
   Zap,
-  ExternalLink,
 } from 'lucide-react';
 import { STATUS_OPTIONS } from '../../types';
 
@@ -48,8 +47,6 @@ export interface InteractionTableFilterBarProps {
   onClearAllFilters: () => void;
   /** Action handler to smoothly scroll to pagination controls */
   onScrollToBottom: () => void;
-  /** Optional Google Sheets URL */
-  googleSheetsUrl?: string;
 }
 
 export const InteractionTableFilterBar: React.FC<InteractionTableFilterBarProps> = React.memo(({
@@ -73,7 +70,6 @@ export const InteractionTableFilterBar: React.FC<InteractionTableFilterBarProps>
   hasActiveFilters,
   onClearAllFilters,
   onScrollToBottom,
-  googleSheetsUrl,
 }) => {
   return (
     <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 space-y-3.5">
@@ -98,17 +94,6 @@ export const InteractionTableFilterBar: React.FC<InteractionTableFilterBarProps>
             <ArrowDown className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-fotoblue-600 dark:group-hover:text-fotoblue-400 transition-transform group-hover:translate-y-0.5" />
           </button>
 
-          {googleSheetsUrl && (
-            <a
-              href={googleSheetsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 active:scale-98 border border-emerald-200/80 dark:border-emerald-800 rounded-xl transition-all shadow-2xs hover:shadow-xs cursor-pointer"
-            >
-              <span>View on Google Sheets</span>
-              <ExternalLink className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            </a>
-          )}
         </div>
       </div>
 

@@ -32,9 +32,16 @@ dist-ssr
 # Database / SQL scripts
 *.sql
 !*.example.sql
+!/supabase/migrations/*.sql
+!/supabase/tests/database/*.sql
+!/supabase/tests/fixtures/*.sql
+/supabase/.temp/
 google-sheets-v2-appscript.js
+!scripts/reference/google-sheets-v2-appscript.js
 
 # Agent & local assistant directories
 .agents/
 .agents
 
+# Local documentation
+/docs/

@@ -14,6 +14,7 @@ export interface AgentProfile {
 }
 
 export interface AuthUserLike {
+  id?: string;
   email?: string;
   user_metadata?: Record<string, any>;
   app_metadata?: Record<string, any>;

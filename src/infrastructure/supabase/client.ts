@@ -19,6 +19,9 @@ export const isSupabaseConfigured = Boolean(
  * Semantic alias indicating whether a valid user database is configured and detected.
  */
 export const isUserDatabaseDetected = isSupabaseConfigured;
+export const supabaseProjectId = (() => {
+  try { return new URL(rawUrl).host.toLowerCase(); } catch { return 'unconfigured'; }
+})();
 
 // Fallback to placeholder endpoint if unconfigured so static/demo deployments never crash at startup
 const fallbackUrl = 'https://placeholder.supabase.co';
@@ -68,6 +71,31 @@ export function isNetworkError(error: unknown): boolean {
     msg.includes('503') ||
     msg.includes('504')
   );
+}
+
+export const ACCESS_RECHECK_ERROR_CODE = 'SUPPORT_HUB_ACCESS_RECHECK';
+
+export function createAccessRecheckError(): Error & { code: string } {
+  const error = new Error('No row was changed. Staff access must be checked again.') as Error & { code: string };
+  error.code = ACCESS_RECHECK_ERROR_CODE;
+  return error;
+}
+
+export function toSupabaseOperationError(error: unknown): Error & { code?: string; status?: number } {
+  const value = typeof error === 'object' && error !== null ? error as Record<string, unknown> : {};
+  const message = typeof value.message === 'string' ? value.message : String(error || 'Supabase operation failed.');
+  const result = new Error(message) as Error & { code?: string; status?: number };
+  if (typeof value.code === 'string') result.code = value.code;
+  if (typeof value.status === 'number') result.status = value.status;
+  return result;
+}
+
+export function isAccessDeniedError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const value = error as { status?: number; code?: string; message?: string };
+  return value.status === 401 || value.status === 403 || value.code === '42501' ||
+    value.code === 'PGRST301' || value.code === 'PGRST116' || value.code === ACCESS_RECHECK_ERROR_CODE ||
+    /permission denied|row-level security|jwt expired/i.test(value.message || '');
 }
 
 /**

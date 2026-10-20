@@ -5,7 +5,7 @@
 
 import { IInteractionRepository } from '../../domain/interaction/repository';
 import { SupportInteraction } from '../../domain/interaction/types';
-import { supabase, isSupabaseConfigured, withNetworkRetry } from './client';
+import { supabase, isSupabaseConfigured, withNetworkRetry, createAccessRecheckError, toSupabaseOperationError } from './client';
 import { mapDbToInteraction, mapInteractionToDb, DbInteraction } from './mappers';
 import { isValidUUID } from '../../utils/uuid';
 
@@ -22,7 +22,7 @@ export class SupabaseInteractionRepository implements IInteractionRepository {
 
       if (error) {
         console.error('Supabase fetch interactions error:', error);
-        throw new Error(error.message);
+        throw toSupabaseOperationError(error);
       }
 
       return (data as DbInteraction[]).map(mapDbToInteraction);
@@ -42,7 +42,7 @@ export class SupabaseInteractionRepository implements IInteractionRepository {
 
       if (error) {
         console.error('Supabase insert interaction error:', error);
-        throw new Error(error.message);
+        throw toSupabaseOperationError(error);
       }
 
       return mapDbToInteraction(data as DbInteraction);
@@ -63,7 +63,7 @@ export class SupabaseInteractionRepository implements IInteractionRepository {
 
       if (error) {
         console.error('Supabase update interaction error:', error);
-        throw new Error(error.message);
+        throw toSupabaseOperationError(error);
       }
 
       return mapDbToInteraction(data as DbInteraction);
@@ -79,15 +79,18 @@ export class SupabaseInteractionRepository implements IInteractionRepository {
     }
 
     await withNetworkRetry(async () => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('interactions')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
 
       if (error) {
         console.error('Supabase delete interaction error:', error);
-        throw new Error(error.message);
+        throw toSupabaseOperationError(error);
       }
+      if (!data) throw createAccessRecheckError();
     });
   }
 

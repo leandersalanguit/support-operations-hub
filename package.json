@@ -8,10 +8,16 @@
     "build": "node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "db:start": "npx --yes supabase@2.121.0 start",
+    "db:reset": "npx --yes supabase@2.121.0 db reset --local --no-seed",
+    "db:stop": "npx --yes supabase@2.121.0 stop",
+    "test:db": "npx --yes supabase@2.121.0 test db --local supabase/tests/database",
+    "test:db:legacy": "node scripts/test-db-legacy.mjs"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.1",
+    "@supabase/supabase-js": "2.112.3",
     "@vercel/speed-insights": "^2.0.0",
     "lucide-react": "^0.475.0",
     "react": "^18.3.1",
@@ -20,16 +26,19 @@
     "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
     "@types/node": "^22.13.4",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "@types/react-test-renderer": "18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.2",
-    "tailwindcss": "^3.4.17",
+    "react-test-renderer": "18.3.1",
+    "tailwindcss": "4.3.3",
     "typescript": "~5.7.2",
     "vite": "^6.1.0",
-    "vitest": "^3.2.7"
+    "vitest": "4.1.12"
   },
   "optionalDependencies": {
     "@esbuild/linux-x64": "^0.25.0",
