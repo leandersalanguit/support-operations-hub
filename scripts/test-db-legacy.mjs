@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, unlinkSync, rmdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, unlinkSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,6 +8,12 @@ import { join } from 'node:path';
 if (process.env.SUPPORT_HUB_ISOLATED_DB_TEST !== '1') {
   console.error('Refusing to reset the local database. This command requires a disposable test stack.');
   console.error('Set SUPPORT_HUB_ISOLATED_DB_TEST=1 only after confirming that its local data can be erased.');
+  process.exit(1);
+}
+const config = readFileSync('supabase/config.toml', 'utf8');
+const projectId = config.match(/^project_id\s*=\s*"([^"]+)"\s*$/m)?.[1];
+if (!projectId || !/^[A-Za-z0-9_-]+$/.test(projectId)) {
+  console.error('Refusing to run legacy database tests with an invalid local project ID.');
   process.exit(1);
 }
 // CLI 2.121 requires --version to name an existing migration. Use a temporary
@@ -27,18 +33,28 @@ process.on('exit', () => {
   }
 });
 const steps = [
-  ['--workdir', resetRoot, 'db', 'reset', '--local', '--yes', '--no-seed'],
-  ['db', 'query', '--local', '--file', 'supabase/tests/fixtures/legacy_example.sql'],
-  ['db', 'push', '--local', '--yes'],
-  ['db', 'query', '--local', '--file', 'supabase/tests/fixtures/legacy-upgrade-assertions.sql'],
-  ['test', 'db', '--local', 'supabase/tests/database'],
+  { kind: 'cli', args: ['--workdir', resetRoot, 'db', 'reset', '--local', '--yes', '--no-seed'] },
+  { kind: 'sql', file: 'supabase/tests/fixtures/legacy_example.sql' },
+  { kind: 'cli', args: ['db', 'push', '--local', '--yes'] },
+  { kind: 'sql', file: 'supabase/tests/fixtures/legacy-upgrade-assertions.sql' },
+  { kind: 'cli', args: ['test', 'db', '--local', 'supabase/tests/database'] },
 ];
-for (const args of steps) {
-  console.log(`Local legacy upgrade: supabase ${args.join(' ')}`);
-  // npm passes its executable path to scripts. Launch its JS CLI through Node
-  // to avoid shell interpolation and Windows .cmd spawning differences.
-  const result = spawnSync(process.execPath, [process.env.npm_execpath, 'exec', '--yes',
-    '--package=supabase@2.121.0', '--', 'supabase', ...args], { stdio: 'inherit' });
+for (const step of steps) {
+  let result;
+  if (step.kind === 'sql') {
+    console.log(`Local legacy upgrade: docker exec supabase_db_${projectId} psql < ${step.file}`);
+    result = spawnSync('docker', ['exec', '-i', `supabase_db_${projectId}`,
+      'psql', '-X', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'], {
+      input: readFileSync(step.file),
+      stdio: ['pipe', 'inherit', 'inherit'],
+    });
+  } else {
+    console.log(`Local legacy upgrade: supabase ${step.args.join(' ')}`);
+    // npm passes its executable path to scripts. Launch its JS CLI through Node
+    // to avoid shell interpolation and Windows .cmd spawning differences.
+    result = spawnSync(process.execPath, [process.env.npm_execpath, 'exec', '--yes',
+      '--package=supabase@2.121.0', '--', 'supabase', ...step.args], { stdio: 'inherit' });
+  }
   if (result.error) {
     console.error('Unable to run the local Supabase test command.');
     process.exit(1);
