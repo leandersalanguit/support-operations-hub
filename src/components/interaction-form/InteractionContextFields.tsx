@@ -9,6 +9,7 @@ interface InteractionContextFieldsProps {
   control: Control<InteractionFormInputs>;
   errors: FieldErrors<InteractionFormInputs>;
   supportTiers?: SupportTier[];
+  onLicenseChange?: () => void;
   compact?: boolean;
 }
 
@@ -16,6 +17,7 @@ export const InteractionContextFields: React.FC<InteractionContextFieldsProps> =
   control,
   errors,
   supportTiers,
+  onLicenseChange,
   compact = false,
 }) => {
   return (
@@ -31,7 +33,10 @@ export const InteractionContextFields: React.FC<InteractionContextFieldsProps> =
           <LicenseSelector
             license={field.value}
             supportTiers={supportTiers}
-            onChangeLicense={(val) => field.onChange(val)}
+            onChangeLicense={(val) => {
+              onLicenseChange?.();
+              field.onChange(val);
+            }}
             error={errors.license?.message}
             compact={compact}
           />

@@ -5,7 +5,7 @@
  * details, perform validations, and save changes.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Interaction,
   ChannelType,
@@ -16,6 +16,7 @@ import {
 import { getDayOfWeekFromDate, getTodayDateString } from '../utils/date';
 import { formatAgentDisplayName, validatePhoneNumber } from '../domain';
 import { useTaxonomies, useClientMatch } from '../application';
+import { resolveSupportLicenseSelection } from '../domain/interaction/license';
 import { getHelpdeskName } from '../utils/helpdesk';
 import { formatChannelDetailsForSubmit } from '../utils/channelDetails';
 import {
@@ -107,6 +108,7 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
   const [agent, setAgent] = useState<string>(''); // The name of the agent who handled the interaction
   const { products, classifications, supportTiers } = useTaxonomies();
   const helpdeskName = getHelpdeskName();
+  const licenseManuallyChangedRef = useRef(false);
   const [clientName, setClientName] = useState<string>(''); // The name of the client
   const [channel, setChannel] = useState<ChannelType>('Call'); // The communication channel ('Call' or 'Chat')
   const [channelDetails, setChannelDetails] = useState<string>(''); // Specific details for the channel (e.g., phone number or ticket ID)
@@ -135,6 +137,7 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
    */
   useEffect(() => {
     if (interaction) {
+      licenseManuallyChangedRef.current = false;
       setDate(interaction.date);
       setDayOfWeek(interaction.dayOfWeek || getDayOfWeekFromDate(interaction.date));
       setAgent(formatAgentDisplayName(interaction.agent) || interaction.agent);
@@ -154,6 +157,15 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
       setSubmittedAttempt(false);
     }
   }, [interaction]);
+
+  useEffect(() => {
+    if (!interaction) return;
+    const nextLicense = resolveSupportLicenseSelection(license, supportTiers, {
+      userSelected: licenseManuallyChangedRef.current,
+      storedLicense: interaction.license,
+    });
+    if (license !== nextLicense) setLicense(nextLicense);
+  }, [interaction, license, supportTiers]);
 
   const handleSelectClientSuggestion = (client: ClientRecord) => {
     setClientName(client.name);
@@ -535,7 +547,10 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
               <LicenseSelector
                 license={license}
                 supportTiers={supportTiers}
-                onChangeLicense={(val) => setLicense(val)}
+                onChangeLicense={(val) => {
+                  licenseManuallyChangedRef.current = true;
+                  setLicense(val);
+                }}
                 compact
               />
 

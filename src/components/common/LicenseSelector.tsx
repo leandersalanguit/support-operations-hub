@@ -6,7 +6,11 @@
 
 import React from 'react';
 import { ShieldCheck, Check, X, Cloud, Mail } from 'lucide-react';
-import { SupportLicense, isLicenseActive as isLicenseActiveDomain } from '../../domain/interaction/license';
+import {
+  SupportLicense,
+  isSupportLicenseActive,
+  isSupportTierActive,
+} from '../../domain/interaction/license';
 import { SupportTier } from '../../infrastructure/supabase/configRepo';
 
 export interface LicenseSelectorProps {
@@ -30,9 +34,7 @@ export const FALLBACK_INACTIVE_TIERS: SupportTier[] = [
  * Inferred dynamically based on database export configuration (exportLabel: 'Yes').
  */
 export function isTierActive(tier: SupportTier): boolean {
-  const exportLabel = (tier.exportLabel || '').trim().toLowerCase();
-  if (exportLabel === 'yes') return true;
-  return tier.code === 'support_active';
+  return isSupportTierActive(tier);
 }
 
 export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
@@ -45,7 +47,7 @@ export const LicenseSelector: React.FC<LicenseSelectorProps> = React.memo(({
   // Resolve active tier dynamically from database fetch
   const activeTier = supportTiers.find((t) => isTierActive(t));
   const activeCode = activeTier?.code || 'support_active';
-  const isLicenseActive = license === activeCode || isLicenseActiveDomain(license);
+  const isLicenseActive = isSupportLicenseActive(license, supportTiers);
 
   // Dynamic inactive tiers from Supabase (excluding the active tier)
   const dbInactiveTiers = supportTiers.filter((t) => !isTierActive(t));
