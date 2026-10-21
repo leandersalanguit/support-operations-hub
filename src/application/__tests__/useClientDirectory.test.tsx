@@ -1,6 +1,7 @@
 import { act, create, ReactTestRenderer } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useClientDirectory } from '../useClientDirectory';
+import type { UserRole } from '../../domain/identity/types';
 import { CUSTOMER_CACHE_TTL_MS, readScopedSession, scopedSessionKey, writeScopedSession } from '../../infrastructure/storage/scopedSessionStore';
 import { addToSyncQueue, getPendingSyncQueue } from '../../infrastructure/storage/localStorageRepos';
 
@@ -23,8 +24,8 @@ describe('useClientDirectory cache hydration', () => {
   let renderer: ReactTestRenderer | undefined;
   let latest: ReturnType<typeof useClientDirectory>;
 
-  function Harness({ onAccessRecheck = vi.fn() }: { onAccessRecheck?: () => void }) {
-    latest = useClientDirectory(userA, false, undefined, false, onAccessRecheck);
+  function Harness({ onAccessRecheck = vi.fn(), userRole = 'team_lead' }: { onAccessRecheck?: () => void; userRole?: UserRole }) {
+    latest = useClientDirectory(userA, false, undefined, false, onAccessRecheck, userRole);
     return null;
   }
 
@@ -80,6 +81,41 @@ describe('useClientDirectory cache hydration', () => {
     expect(onAccessRecheck).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem(scopedSessionKey(scopeA, 'clients'))).toBeNull();
     expect(getPendingSyncQueue(scopeA)).toEqual([]);
+  });
+
+  it('rejects support-agent client deletions while allowing updates to existing clients', async () => {
+    const updatedClient = { ...client, name: 'Updated Client A' };
+    const secondClient = { ...client, id: 'client-b', name: 'Client B' };
+    writeScopedSession(scopeA, 'clients', [client, secondClient]);
+
+    await act(async () => {
+      renderer = create(<Harness userRole="support_agent" />);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await latest.updateClients([updatedClient]);
+    });
+
+    expect(latest.clients.map(({ id }) => id)).toEqual(['client-a', 'client-b']);
+    expect(latest.clients.find(({ id }) => id === 'client-a')?.name).toBe('Updated Client A');
+    expect(clientRepoMocks.delete).not.toHaveBeenCalled();
+    expect(clientRepoMocks.update).toHaveBeenCalledWith(expect.objectContaining({ id: 'client-a' }), undefined);
+  });
+
+  it('allows team leads to delete client records', async () => {
+    writeScopedSession(scopeA, 'clients', [client]);
+    clientRepoMocks.delete.mockResolvedValueOnce(undefined);
+
+    await act(async () => {
+      renderer = create(<Harness userRole="team_lead" />);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await latest.updateClients([]);
+    });
+
+    expect(latest.clients).toEqual([]);
+    expect(clientRepoMocks.delete).toHaveBeenCalledWith('client-a');
   });
 });
 

@@ -18,13 +18,15 @@ import { clientRepo } from '../infrastructure/supabase/clientRepo';
 import { isAccessDeniedError, isSupabaseConfigured } from '../infrastructure/supabase/client';
 import { computeClientDiff } from '../domain/client/diff';
 import { getMockInitialClients } from '../data/mockDemoData';
+import type { UserRole } from '../domain/identity/types';
 
 export function useClientDirectory(
   currentUser: User | null | undefined,
   isPasswordChangeRequired: boolean,
   currentAgentName?: string,
   isDemoMode = false,
-  onAccessRecheck?: () => void | Promise<unknown>
+  onAccessRecheck?: () => void | Promise<unknown>,
+  userRole: UserRole = 'support_agent'
 ) {
   const storageScope = useMemo(() => createStorageScope(currentUser?.id, isDemoMode), [currentUser?.id, isDemoMode]);
   const currentScopeRef = useRef<StorageScope | null>(storageScope);
@@ -223,11 +225,16 @@ export function useClientDirectory(
         normalizedClients as any
       );
 
-      setClients(normalizedClients);
+      const allowedDeletedClients = userRole === 'team_lead' ? deletedClients : [];
+      const nextClients = userRole === 'team_lead'
+        ? normalizedClients
+        : [...normalizedClients, ...deletedClients];
+
+      setClients(nextClients);
 
       const errors: string[] = [];
 
-      for (const deleted of deletedClients) {
+      for (const deleted of allowedDeletedClients) {
         if (!isCustomerSessionGenerationCurrent(sessionGeneration) || (storageScope && (currentScopeRef.current?.userId !== storageScope.userId || currentScopeRef.current?.projectId !== storageScope.projectId))) return;
         try {
           await clientRepo.delete(deleted.id);
@@ -265,7 +272,7 @@ export function useClientDirectory(
         console.error('[useClientDirectory] Reverted optimistic updates due to database errors:', errors);
       }
     },
-    [clients, currentAgentName, isDemoMode, isPasswordChangeRequired, storageScope, handleAccessRecheck]
+    [clients, currentAgentName, isDemoMode, isPasswordChangeRequired, storageScope, handleAccessRecheck, userRole]
   );
 
   return {

@@ -75,7 +75,8 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     isPasswordChangeRequired,
     currentAgentName,
     isDemoMode,
-    refreshAccessState
+    refreshAccessState,
+    userRole
   );
 
   // ---------------------------------------------------------------------------
@@ -356,6 +357,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
             <ClientDirectory
               clients={clients}
               currentAgentName={currentAgentName}
+              userRole={userRole}
               onUpdateClients={updateClients}
               onNavigateToSummary={() => setActiveTab('shift-summary')}
             />

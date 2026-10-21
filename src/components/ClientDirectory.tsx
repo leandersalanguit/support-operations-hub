@@ -24,10 +24,12 @@ import { useClipboardCopy } from '../utils/clipboard';
 import { ConfirmModal } from './common';
 import { ClientFormModal } from './ClientFormModal';
 import { ClientListItem, ClientGridCard } from './client-directory';
+import type { UserRole } from '../domain/identity/types';
 
 interface ClientDirectoryProps {
   clients: ClientRecord[];
   currentAgentName?: string;
+  userRole: UserRole;
   onUpdateClients: (clients: ClientRecord[]) => void;
   onNavigateToSummary: () => void;
 }
@@ -35,6 +37,7 @@ interface ClientDirectoryProps {
 export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
   clients,
   currentAgentName,
+  userRole,
   onUpdateClients,
   onNavigateToSummary,
 }) => {
@@ -134,6 +137,10 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
 
   // Confirm and delete client
   const handleConfirmDelete = () => {
+    if (userRole !== 'team_lead') {
+      setClientToDelete(null);
+      return;
+    }
     if (!clientToDelete) return;
     const updatedList = clients.filter((c) => c.id !== clientToDelete.id);
     onUpdateClients(updatedList);
@@ -311,6 +318,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                   onCopyPhone={handleCopyPhone}
                   onEdit={handleOpenEdit}
                   onDelete={setClientToDelete}
+                  canDelete={userRole === 'team_lead'}
                 />
               );
             })}
@@ -335,6 +343,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
                 onCopyPhone={handleCopyPhone}
                 onEdit={handleOpenEdit}
                 onDelete={setClientToDelete}
+                canDelete={userRole === 'team_lead'}
               />
             );
           })}
@@ -353,7 +362,7 @@ export const ClientDirectory: React.FC<ClientDirectoryProps> = ({
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal
-        isOpen={!!clientToDelete}
+        isOpen={userRole === 'team_lead' && !!clientToDelete}
         onClose={() => setClientToDelete(null)}
         onConfirm={handleConfirmDelete}
         title="Delete Client Record?"

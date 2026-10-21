@@ -16,6 +16,7 @@ export interface ClientListItemProps {
   onCopyPhone: (phone: string) => void;
   onEdit: (client: ClientRecord) => void;
   onDelete: (client: ClientRecord) => void;
+  canDelete: boolean;
 }
 
 export const ClientListItem: React.FC<ClientListItemProps> = ({
@@ -25,6 +26,7 @@ export const ClientListItem: React.FC<ClientListItemProps> = ({
   onCopyPhone,
   onEdit,
   onDelete,
+  canDelete,
 }) => {
   return (
     <div className="p-4 sm:px-5 sm:py-3.5 hover:bg-slate-50/70 dark:hover:bg-slate-700/30 transition-colors group">
@@ -66,14 +68,14 @@ export const ClientListItem: React.FC<ClientListItemProps> = ({
           >
             <Edit2 className="w-3.5 h-3.5" />
           </button>
-          <button
+          {canDelete && <button
             type="button"
             onClick={() => onDelete(client)}
             className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
             title="Delete client"
           >
             <Trash2 className="w-3.5 h-3.5" />
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -99,14 +101,14 @@ export const ClientListItem: React.FC<ClientListItemProps> = ({
             >
               <Edit2 className="w-3.5 h-3.5" />
             </button>
-            <button
+            {canDelete && <button
               type="button"
               onClick={() => onDelete(client)}
               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600"
               title="Delete client"
             >
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            </button>}
           </div>
         </div>
 
