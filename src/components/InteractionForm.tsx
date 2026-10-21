@@ -28,6 +28,7 @@ import { useTaxonomies, useClientMatch } from '../application';
 import { parseExcelRow, ParsedExcelRow } from '../utils/importParser';
 import { readTextFromClipboard } from '../utils/clipboard';
 import { PasteExcelModal } from './PasteExcelModal';
+import { getDefaultSupportLicense, resolveSupportLicenseSelection } from '../domain/interaction/license';
 import {
   handleFormEnterKeyNavigation,
 } from './common';
@@ -97,7 +98,8 @@ interface InteractionFormProps {
 const getDefaultValues = (
   agentName?: string,
   defaultProduct = '',
-  defaultClassification = ''
+  defaultClassification = '',
+  defaultLicense: SupportLicense = 'support_active'
 ): InteractionFormInputs => {
   const initialDate = getTodayDateString();
   return {
@@ -111,7 +113,7 @@ const getDefaultValues = (
     clientProduct: defaultProduct || '',
     caseClassification: defaultClassification || '',
     status: 'Solved',
-    license: 'support_active',
+    license: defaultLicense,
     inEvent: true,
     firstTimeUser: false,
     additionalNotes: '',
@@ -137,6 +139,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
   // Dynamic taxonomies from database context
   const { products, classifications, supportTiers } = useTaxonomies();
   const helpdeskName = getHelpdeskName();
+  const defaultLicense = getDefaultSupportLicense(supportTiers);
 
   // View layout mode ('vertical' for clear vertical form flow, 'grid' for compact multi-column layout)
   const [viewMode, setViewMode] = useState<'grid' | 'vertical'>(() => loadFormViewMode());
@@ -161,7 +164,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
     clearErrors,
     formState: { errors, isSubmitted },
   } = useForm<InteractionFormInputs>({
-    defaultValues: getDefaultValues(agentName, products[0] || '', classifications[0] || ''),
+    defaultValues: getDefaultValues(agentName, products[0] || '', classifications[0] || '', defaultLicense),
     mode: 'onSubmit',
   });
 
@@ -175,6 +178,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
 
   // Track whether the user has manually changed the product
   const userManuallySelectedProductRef = useRef<boolean>(false);
+  const userManuallySelectedLicenseRef = useRef<boolean>(false);
   // Suppress immediate empty phone error when user explicitly starts adding/changing a number
   const suppressPhoneEmptyErrorRef = useRef<boolean>(false);
 
@@ -197,6 +201,16 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
       }
     }
   }, [products, classifications, matchedClient, setValue, getValues]);
+
+  useEffect(() => {
+    const currentLicense = getValues('license');
+    const nextLicense = resolveSupportLicenseSelection(currentLicense, supportTiers, {
+      userSelected: userManuallySelectedLicenseRef.current,
+    });
+    if (currentLicense !== nextLicense) {
+      setValue('license', nextLicense, { shouldValidate: false });
+    }
+  }, [supportTiers, defaultLicense, getValues, setValue]);
 
   // Track the last matched client to avoid repeatedly resetting user edits
   const lastAutoFilledClientRef = useRef<string | null>(null);
@@ -379,7 +393,7 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
       clientProduct: data.clientProduct,
       caseClassification: data.caseClassification,
       status: data.status as StatusType,
-      license: data.license || 'support_active',
+      license: data.license || defaultLicense,
       inEvent: data.inEvent === true,
       firstTimeUser: data.firstTimeUser === true,
       additionalNotes: data.additionalNotes.trim(),
@@ -391,9 +405,11 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
 
     // Reset form fields back to defaults with today's date, retaining the agent
     userManuallySelectedProductRef.current = false;
+    userManuallySelectedLicenseRef.current = false;
     reset({
-      ...getDefaultValues(agentName || formattedAgent, products[0] || '', classifications[0]),
+      ...getDefaultValues(agentName || formattedAgent, products[0] || '', classifications[0], defaultLicense),
       agent: formattedAgent,
+      license: defaultLicense,
     });
 
     // Show temporary feedback toast for 2.5s
@@ -408,11 +424,13 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
    */
   const handleClearFields = () => {
     userManuallySelectedProductRef.current = false;
+    userManuallySelectedLicenseRef.current = false;
     lastAutoFilledClientRef.current = null;
     const currentValues = getValues();
     reset({
-      ...getDefaultValues(agentName || currentValues.agent, products[0] || '', classifications[0]),
+      ...getDefaultValues(agentName || currentValues.agent, products[0] || '', classifications[0], defaultLicense),
       agent: currentValues.agent,
+      license: defaultLicense,
     });
   };
 
@@ -580,6 +598,9 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
             control={control}
             errors={errors}
             supportTiers={supportTiers}
+            onLicenseChange={() => {
+              userManuallySelectedLicenseRef.current = true;
+            }}
             compact={isCompact}
           />
         );
