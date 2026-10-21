@@ -4,7 +4,7 @@
  * session restoration, password reset gatekeeping, and agent role/profile resolution.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../infrastructure/supabase/client';
 import {
@@ -12,9 +12,19 @@ import {
   formatAgentDisplayName,
   formatAgentFullName,
   normalizeAuthEmail,
+  hasAuthenticatedUserChanged,
   UserRole,
 } from '../domain';
-import { checkPasswordBreach } from '../utils/passwordSecurity';
+import { getMyAccessState, isStaffAccessRestricted, StaffAccessState } from '../infrastructure/supabase/staffAccessRepo';
+import { completeRequiredPasswordChange } from '../infrastructure/supabase/passwordChangeAdapter';
+import {
+  clearCustomerSession,
+  getCustomerSessionGeneration,
+  isCustomerSessionGenerationCurrent,
+  notifyCustomerSessionCleared,
+  notifyStaffAccessInvalidated,
+  subscribeStaffAccessInvalidated,
+} from '../infrastructure/storage/scopedSessionStore';
 import {
   DEFAULT_MOCK_PERSONA_ID,
   getMockPersonaById,
@@ -59,32 +69,6 @@ function createMockUser(persona: MockPersona): User {
   } as unknown as User;
 }
 
-export function checkMustChangePassword(user: User | null | undefined): boolean {
-  if (!user) return false;
-  const userMeta = (user.user_metadata || {}) as Record<string, unknown>;
-  const appMeta = (user.app_metadata || {}) as Record<string, unknown>;
-
-  if (
-    userMeta.must_change_password === false ||
-    userMeta.needs_password_reset === false ||
-    userMeta.mustChangePassword === false ||
-    userMeta.needsPasswordReset === false
-  ) {
-    return false;
-  }
-
-  return Boolean(
-    userMeta.must_change_password ||
-    userMeta.needs_password_reset ||
-    userMeta.mustChangePassword ||
-    userMeta.needsPasswordReset ||
-    appMeta.must_change_password ||
-    appMeta.needs_password_reset ||
-    appMeta.mustChangePassword ||
-    appMeta.needsPasswordReset
-  );
-}
-
 export function useAuthWorkflow() {
   const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
     // If a user database is detected, demo mode is strictly disabled
@@ -108,7 +92,43 @@ export function useAuthWorkflow() {
   });
 
   const [authLoading, setAuthLoading] = useState<boolean>(() => !isDemoMode);
-  const [isPasswordChangeRequired, setIsPasswordChangeRequired] = useState<boolean>(false);
+  const [passwordChangeRequiredState, setIsPasswordChangeRequired] = useState<boolean>(!isDemoMode && isSupabaseConfigured);
+  const [staffAccessState, setStaffAccessState] = useState<StaffAccessState | null>(null);
+  const staffAccessRef = useRef<StaffAccessState | null>(staffAccessState);
+  staffAccessRef.current = staffAccessState;
+  const accessRequestId = useRef(0);
+  const lastAuthUserId = useRef<string | null>(currentUser?.id || null);
+
+  const refreshAccessState = useCallback(async (userId?: string) => {
+    const requestId = ++accessRequestId.current;
+    setAuthLoading(true);
+    try {
+      const state = await getMyAccessState();
+      if (requestId !== accessRequestId.current) return state;
+      if (userId && state?.userId !== userId) {
+        setStaffAccessState(null);
+        setIsPasswordChangeRequired(true);
+        setAuthLoading(false);
+        return null;
+      }
+      setStaffAccessState(state);
+      setIsPasswordChangeRequired(isStaffAccessRestricted(state, state?.userId));
+      if (!state || !state.active) {
+        clearCustomerSession();
+        if (staffAccessRef.current?.active) notifyStaffAccessInvalidated();
+        else notifyCustomerSessionCleared();
+      }
+      setAuthLoading(false);
+      return state;
+    } catch (error) {
+      if (requestId === accessRequestId.current) {
+        setStaffAccessState(null);
+        setIsPasswordChangeRequired(true);
+        setAuthLoading(false);
+      }
+      throw error;
+    }
+  }, []);
 
   // If a user database is detected, purge any lingering demo storage
   useEffect(() => {
@@ -119,7 +139,10 @@ export function useAuthWorkflow() {
     }
   }, []);
 
-  const userRole: UserRole = getUserRole(currentUser);
+  const userRole: UserRole = staffAccessState?.role || (isDemoMode ? getUserRole(currentUser) : 'support_agent');
+  const isPasswordChangeRequired = !isDemoMode && currentUser
+    ? isStaffAccessRestricted(staffAccessState, currentUser.id)
+    : passwordChangeRequiredState;
   const isTeamLead = userRole === 'team_lead';
 
   const currentAgentName: string = currentUser
@@ -139,35 +162,47 @@ export function useAuthWorkflow() {
     if (isSupabaseConfigured) return;
 
     const persona = getMockPersonaById(personaId);
+    if (activePersonaId !== persona.id) {
+      clearCustomerSession({ projectId: 'support-hub-demo', userId: activePersonaId });
+      notifyCustomerSessionCleared();
+    }
     try {
       sessionStorage.setItem(DEMO_STORAGE_KEY, persona.id);
     } catch {}
     setIsDemoMode(true);
     setActivePersonaId(persona.id);
     setCurrentUser(createMockUser(persona));
+    setStaffAccessState(null);
     setIsPasswordChangeRequired(false);
     setAuthLoading(false);
-  }, []);
+  }, [activePersonaId]);
 
   const switchDemoPersona = useCallback((personaId: string) => {
     // Guard: demo mode is not permitted when a user database is detected
     if (isSupabaseConfigured) return;
 
     const persona = getMockPersonaById(personaId);
+    clearCustomerSession({ projectId: 'support-hub-demo', userId: activePersonaId });
+    notifyCustomerSessionCleared();
     try {
       sessionStorage.setItem(DEMO_STORAGE_KEY, persona.id);
     } catch {}
     setActivePersonaId(persona.id);
     setCurrentUser(createMockUser(persona));
-  }, []);
+    setStaffAccessState(null);
+  }, [activePersonaId]);
 
   const exitDemoMode = useCallback(() => {
+    clearCustomerSession({ projectId: 'support-hub-demo', userId: activePersonaId });
+    notifyCustomerSessionCleared();
     try {
       sessionStorage.removeItem(DEMO_STORAGE_KEY);
     } catch {}
     setIsDemoMode(false);
     setCurrentUser(null);
-  }, []);
+    setStaffAccessState(null);
+    setIsPasswordChangeRequired(false);
+  }, [activePersonaId]);
 
   useEffect(() => {
     if (isDemoMode) {
@@ -186,8 +221,18 @@ export function useAuthWorkflow() {
       .then(({ data: { session } }) => {
         if (!isMounted) return;
         if (session?.user) {
+          if (hasAuthenticatedUserChanged(lastAuthUserId.current, session.user.id)) {
+            clearCustomerSession();
+            notifyCustomerSessionCleared();
+          }
+          lastAuthUserId.current = session.user.id;
           setCurrentUser(session.user);
-          setIsPasswordChangeRequired(checkMustChangePassword(session.user));
+          refreshAccessState(session.user.id).catch((err) => {
+            console.error('Staff access state load error:', err);
+          });
+        } else {
+          setStaffAccessState(null);
+          setIsPasswordChangeRequired(false);
         }
       })
       .catch((err) => {
@@ -201,19 +246,40 @@ export function useAuthWorkflow() {
       if (!isMounted) return;
 
       if (session?.user) {
+        if (hasAuthenticatedUserChanged(lastAuthUserId.current, session.user.id)) {
+          clearCustomerSession();
+          notifyCustomerSessionCleared();
+        }
+        lastAuthUserId.current = session.user.id;
         setCurrentUser(session.user);
-        setIsPasswordChangeRequired(checkMustChangePassword(session.user));
+        refreshAccessState(session.user.id).catch((err) => {
+          console.error('Staff access state load error:', err);
+        });
       } else if (!isDemoMode) {
+        if (lastAuthUserId.current) {
+          clearCustomerSession();
+          notifyCustomerSessionCleared();
+        }
+        lastAuthUserId.current = null;
+        accessRequestId.current++;
         setCurrentUser(null);
+        setStaffAccessState(null);
         setIsPasswordChangeRequired(false);
       }
+    });
+
+    const unsubscribeAccessInvalidation = subscribeStaffAccessInvalidated(() => {
+      refreshAccessState(lastAuthUserId.current || undefined).catch((err) => {
+        console.error('Staff access refresh error:', err);
+      });
     });
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      unsubscribeAccessInvalidation();
     };
-  }, [isDemoMode]);
+  }, [isDemoMode, refreshAccessState]);
 
   const signIn = useCallback(async (emailOrHandle: string, password: string) => {
     const email = normalizeAuthEmail(emailOrHandle);
@@ -231,39 +297,36 @@ export function useAuthWorkflow() {
     return await supabase.auth.signOut();
   }, [isDemoMode, exitDemoMode]);
 
-  const updatePassword = useCallback(async (newPassword: string, metadata?: Record<string, unknown>) => {
-    const { isPwned, breachCount } = await checkPasswordBreach(newPassword);
-    if (isPwned) {
-      return {
-        data: { user: null },
-        error: new Error(
-          `This password has appeared in ${breachCount.toLocaleString()} known data breaches. Please choose a more secure password.`
-        ),
-      };
+  const updatePassword = useCallback(async (newPassword: string) => {
+    if (newPassword.length < 12 || newPassword.length > 128) {
+      throw new Error('Password must contain 12 to 128 characters.');
     }
-
-    const mergedMetadata = {
-      must_change_password: false,
-      needs_password_reset: false,
-      mustChangePassword: false,
-      needsPasswordReset: false,
-      ...metadata,
-    };
-    const res = await supabase.auth.updateUser({
-      password: newPassword,
-      data: mergedMetadata,
-    });
-    if (!res.error) {
-      setIsPasswordChangeRequired(false);
+    const sessionGeneration = getCustomerSessionGeneration();
+    const userId = currentUser?.id;
+    if (!userId) throw new Error('Staff access could not be confirmed for this session.');
+    await completeRequiredPasswordChange(newPassword);
+    if (!isCustomerSessionGenerationCurrent(sessionGeneration) || lastAuthUserId.current !== userId) {
+      throw new Error('The signed-in session changed before password access could be confirmed.');
     }
-    return res;
-  }, []);
+    const { error } = await supabase.auth.refreshSession();
+    if (!isCustomerSessionGenerationCurrent(sessionGeneration) || lastAuthUserId.current !== userId) {
+      throw new Error('The signed-in session changed before password access could be confirmed.');
+    }
+    if (error) throw new Error('Password changed, but the session could not be refreshed.');
+    const state = await refreshAccessState(userId);
+    if (!isCustomerSessionGenerationCurrent(sessionGeneration) || lastAuthUserId.current !== userId) return;
+    if (!state?.active || state.passwordChangeRequired) {
+      throw new Error('Staff access could not be confirmed after the password change.');
+    }
+  }, [currentUser?.id, refreshAccessState]);
 
   return {
     currentUser,
     authLoading,
     isPasswordChangeRequired,
     setIsPasswordChangeRequired,
+    staffAccessState,
+    refreshAccessState,
     isSupabaseConfigured,
     isUserDatabaseDetected: isSupabaseConfigured,
     isDemoAvailable: !isSupabaseConfigured,

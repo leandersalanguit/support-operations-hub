@@ -6,7 +6,7 @@
 import { IClientRepository } from '../../domain/client/repository';
 import { ClientProfile } from '../../domain/client/types';
 import { resolveClientName } from '../../domain/client/nameResolution';
-import { supabase, isSupabaseConfigured, withNetworkRetry } from './client';
+import { supabase, isSupabaseConfigured, withNetworkRetry, createAccessRecheckError, toSupabaseOperationError } from './client';
 import { mapDbToClient } from './mappers';
 import { generateUUID } from '../../utils/uuid';
 
@@ -32,7 +32,7 @@ export class SupabaseClientRepository implements IClientRepository {
 
       if (error) {
         console.error('Supabase fetch clients error:', error);
-        throw new Error(error.message);
+        throw toSupabaseOperationError(error);
       }
 
       return (data || []).map(mapDbToClient);
@@ -79,7 +79,7 @@ export class SupabaseClientRepository implements IClientRepository {
         .maybeSingle();
 
       if (findError) {
-        throw new Error(findError.message);
+        throw toSupabaseOperationError(findError);
       }
 
       let clientId: string;
@@ -112,14 +112,17 @@ export class SupabaseClientRepository implements IClientRepository {
           phone_numbers: currentPhoneNumbers,
         };
 
-        const { error: updateError } = await supabase
+        const { data: updatedClient, error: updateError } = await supabase
           .from('clients')
           .update(updatePayload)
-          .eq('id', clientId);
+          .eq('id', clientId)
+          .select('id')
+          .maybeSingle();
 
         if (updateError) {
-          console.warn('Could not update client record:', updateError.message);
+          throw toSupabaseOperationError(updateError);
         }
+        if (!updatedClient) throw createAccessRecheckError();
       } else {
         currentPhoneNumbers = trimmedPhone ? [trimmedPhone] : [];
 
@@ -138,7 +141,7 @@ export class SupabaseClientRepository implements IClientRepository {
           .single();
 
         if (insertError) {
-          throw new Error(insertError.message);
+          throw toSupabaseOperationError(insertError);
         }
 
         clientId = newClient.id;
@@ -154,16 +157,15 @@ export class SupabaseClientRepository implements IClientRepository {
             { onConflict: 'client_id,product_name', ignoreDuplicates: true }
           );
 
-        if (productError) {
-          console.warn('Could not link product to client:', productError.message);
-        }
+        if (productError) throw toSupabaseOperationError(productError);
       }
 
       // 3. Fetch all current owned products for complete profile
-      const { data: productsData } = await supabase
+      const { data: productsData, error: productsError } = await supabase
         .from('client_products')
         .select('product_name')
         .eq('client_id', clientId);
+      if (productsError) throw toSupabaseOperationError(productsError);
 
       const ownedProducts: string[] = productsData
         ? (productsData as Array<{ product_name: string }>).map((p) => p.product_name).filter(Boolean)
@@ -195,7 +197,7 @@ export class SupabaseClientRepository implements IClientRepository {
 
     await withNetworkRetry(async () => {
       // 1. Upsert client row
-      const { error: upsertError } = await supabase
+      const { data: upsertedClient, error: upsertError } = await supabase
         .from('clients')
         .upsert(
           {
@@ -207,17 +209,45 @@ export class SupabaseClientRepository implements IClientRepository {
             last_logged_by: agentName || client.lastLoggedBy || null,
           },
           { onConflict: 'id' }
-        );
+        )
+        .select('id')
+        .single();
 
-      if (upsertError) throw new Error(upsertError.message);
+      if (upsertError) throw toSupabaseOperationError(upsertError);
+      if (!upsertedClient) throw createAccessRecheckError();
 
       // 2. Refresh client_products
       if (Array.isArray(client.ownedProducts)) {
         const uniqueProducts = Array.from(new Set(client.ownedProducts.filter(Boolean)));
-        await supabase.from('client_products').delete().eq('client_id', client.id);
+        const { data: existingProducts, error: readProductsError } = await supabase
+          .from('client_products')
+          .select('id, product_name')
+          .eq('client_id', client.id);
+        if (readProductsError) throw toSupabaseOperationError(readProductsError);
+        const existingRows = Array.isArray(existingProducts)
+          ? existingProducts as Array<{ id: string; product_name: string }>
+          : [];
+        const desiredProducts = new Set(uniqueProducts);
+        const desiredProductNames = new Set(existingRows.map((row) => row.product_name));
+        const removedProductIds = existingRows
+          .filter((row) => !desiredProducts.has(row.product_name))
+          .map((row) => row.id);
 
-        if (uniqueProducts.length > 0) {
-          const productRows = uniqueProducts.map((p) => ({
+        if (removedProductIds.length > 0) {
+          const { data: deletedProducts, error: deleteProductsError } = await supabase
+            .from('client_products')
+            .delete()
+            .in('id', removedProductIds)
+            .select('id');
+          if (deleteProductsError) throw toSupabaseOperationError(deleteProductsError);
+          if (!Array.isArray(deletedProducts) || deletedProducts.length !== removedProductIds.length) {
+            throw createAccessRecheckError();
+          }
+        }
+
+        const addedProducts = uniqueProducts.filter((productName) => !desiredProductNames.has(productName));
+        if (addedProducts.length > 0) {
+          const productRows = addedProducts.map((p) => ({
             client_id: client.id,
             product_name: p,
           }));
@@ -225,7 +255,7 @@ export class SupabaseClientRepository implements IClientRepository {
             .from('client_products')
             .upsert(productRows, { onConflict: 'client_id,product_name', ignoreDuplicates: true });
 
-          if (insertError) console.warn('client_products update warning:', insertError.message);
+          if (insertError) throw toSupabaseOperationError(insertError);
         }
       }
     });
@@ -235,8 +265,14 @@ export class SupabaseClientRepository implements IClientRepository {
     if (!isSupabaseConfigured) return;
 
     await withNetworkRetry(async () => {
-      const { error } = await supabase.from('clients').delete().eq('id', id);
-      if (error) throw new Error(error.message);
+      const { data, error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', id)
+        .select('id')
+        .maybeSingle();
+      if (error) throw toSupabaseOperationError(error);
+      if (!data) throw createAccessRecheckError();
     });
   }
 }

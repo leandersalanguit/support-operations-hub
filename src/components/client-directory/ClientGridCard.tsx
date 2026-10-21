@@ -16,6 +16,7 @@ export interface ClientGridCardProps {
   onCopyPhone: (phone: string) => void;
   onEdit: (client: ClientRecord) => void;
   onDelete: (client: ClientRecord) => void;
+  canDelete: boolean;
 }
 
 export const ClientGridCard: React.FC<ClientGridCardProps> = ({
@@ -25,6 +26,7 @@ export const ClientGridCard: React.FC<ClientGridCardProps> = ({
   onCopyPhone,
   onEdit,
   onDelete,
+  canDelete,
 }) => {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all duration-200 group">
@@ -49,14 +51,14 @@ export const ClientGridCard: React.FC<ClientGridCardProps> = ({
             >
               <Edit2 className="w-3.5 h-3.5" />
             </button>
-            <button
+            {canDelete && <button
               type="button"
               onClick={() => onDelete(client)}
               className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
               title="Delete client"
             >
               <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            </button>}
           </div>
         </div>
 

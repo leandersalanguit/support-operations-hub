@@ -87,66 +87,18 @@ export function normalizeAuthEmail(input: string): string {
  * - Support agents can only edit or delete entries authored by themselves.
  */
 export function canModifyInteractionPolicy(
-  interactionAgent: string | undefined | null,
+  ownerUserId: string | null | undefined,
   currentUser: AuthUserLike | null | undefined,
-  userRole?: UserRole,
-  currentAgentName?: string
+  role?: UserRole
 ): boolean {
-  if (!interactionAgent) return false;
+  if (!currentUser?.id) return false;
+  const effectiveRole = role || getUserRole(currentUser);
+  if (effectiveRole === 'team_lead') return true;
+  return Boolean(ownerUserId && ownerUserId === currentUser.id);
+}
 
-  const effectiveRole = userRole || getUserRole(currentUser);
-  if (effectiveRole === 'team_lead' || isTeamLead(currentUser)) {
-    return true;
-  }
-
-  const rawItemAgent = interactionAgent.trim();
-  if (!rawItemAgent) return false;
-
-  const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-  const userDisplay = currentAgentName || formatAgentDisplayName(currentUser?.user_metadata?.name || currentUser?.email);
-  const userFull = formatAgentFullName(currentUser?.user_metadata?.name || currentUser?.email);
-  const userEmail = currentUser?.email || '';
-  const userMetaName = currentUser?.user_metadata?.name || '';
-  const userFirst = getAgentFirstName(userDisplay) || getAgentFirstName(userEmail) || getAgentFirstName(userMetaName);
-
-  const normItemAgent = normalize(rawItemAgent);
-  const normFormattedItem = normalize(formatAgentDisplayName(rawItemAgent));
-  const normFullItem = normalize(formatAgentFullName(rawItemAgent));
-
-  const candidates = [
-    userDisplay,
-    formatAgentDisplayName(userDisplay),
-    userFull,
-    formatAgentFullName(userFull),
-    userEmail,
-    userEmail.split('@')[0],
-    formatAgentDisplayName(userEmail),
-    userMetaName,
-    formatAgentDisplayName(userMetaName),
-  ]
-    .filter(Boolean)
-    .map((s) => normalize(s));
-
-  if (
-    candidates.includes(normItemAgent) ||
-    candidates.includes(normFormattedItem) ||
-    candidates.includes(normFullItem)
-  ) {
-    return true;
-  }
-
-  const itemFirst = normalize(getAgentFirstName(rawItemAgent));
-  if (itemFirst && userFirst && itemFirst === normalize(userFirst)) {
-    const itemFormatted = formatAgentDisplayName(rawItemAgent);
-    const userFormatted = formatAgentDisplayName(userDisplay);
-    if (itemFormatted && userFormatted) {
-      return normalize(itemFormatted) === normalize(userFormatted);
-    }
-    return true;
-  }
-
-  return false;
+export function hasAuthenticatedUserChanged(previousUserId: string | null, nextUserId: string): boolean {
+  return Boolean(previousUserId && previousUserId !== nextUserId);
 }
 
 /**
@@ -155,12 +107,11 @@ export function canModifyInteractionPolicy(
  */
 export function checkInteractionModificationPermission(
   action: 'edit' | 'delete',
-  interactionAgent: string | undefined | null,
+  ownerUserId: string | null | undefined,
   currentUser: AuthUserLike | null | undefined,
-  userRole?: UserRole,
-  currentAgentName?: string
+  userRole?: UserRole
 ): { allowed: boolean; errorMessage?: string } {
-  const allowed = canModifyInteractionPolicy(interactionAgent, currentUser, userRole, currentAgentName);
+  const allowed = canModifyInteractionPolicy(ownerUserId, currentUser, userRole);
   if (!allowed) {
     const actionLabel = action === 'edit' ? 'edit' : 'delete';
     return {

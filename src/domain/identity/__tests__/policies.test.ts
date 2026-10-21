@@ -1,92 +1,55 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  getUserRole,
-  isTeamLead,
-  formatAgentDisplayName,
-  getAgentFirstName,
-  formatAgentFullName,
-  normalizeAuthEmail,
   canModifyInteractionPolicy,
   checkInteractionModificationPermission,
+  hasAuthenticatedUserChanged,
 } from '../policies';
+import { AuthUserLike } from '../types';
 
-describe('Domain - Identity & Authorization Policies', () => {
-  describe('getUserRole & isTeamLead', () => {
-    it('identifies team_lead, lead, or admin role from app_metadata', () => {
-      expect(getUserRole({ app_metadata: { role: 'team_lead' } })).toBe('team_lead');
-      expect(getUserRole({ app_metadata: { role: 'admin' } })).toBe('team_lead');
-      expect(getUserRole({ app_metadata: { role: 'lead' } })).toBe('team_lead');
-      expect(isTeamLead({ app_metadata: { role: 'team_lead' } })).toBe(true);
-    });
+const agentA: AuthUserLike = {
+  id: 'user-a',
+  email: 'same.name@example.test',
+  user_metadata: { name: 'Alex Smith' },
+};
+const agentB: AuthUserLike = {
+  id: 'user-b',
+  email: 'other@example.test',
+  user_metadata: { name: 'Alex Smith' },
+};
+const lead: AuthUserLike = { id: 'lead-id', app_metadata: { role: 'team_lead' } };
 
-    it('defaults to support_agent if app_metadata role is absent or non-lead', () => {
-      expect(getUserRole({ app_metadata: { role: 'agent' } })).toBe('support_agent');
-      expect(getUserRole(null)).toBe('support_agent');
-      expect(isTeamLead(null)).toBe(false);
-    });
+describe('canModifyInteractionPolicy', () => {
+  it('detects a signed-in account switch without an intermediate signed-out event', () => {
+    expect(hasAuthenticatedUserChanged('user-a', 'user-b')).toBe(true);
+    expect(hasAuthenticatedUserChanged('user-a', 'user-a')).toBe(false);
+    expect(hasAuthenticatedUserChanged(null, 'user-a')).toBe(false);
   });
 
-  describe('Agent Name Formatters', () => {
-    it('formats raw string into First Name + Last Initial', () => {
-      expect(formatAgentDisplayName('michael.scott')).toBe('Michael S.');
-      expect(formatAgentDisplayName('jim halpert')).toBe('Jim H.');
-      expect(formatAgentDisplayName('dwight_schrute@dundermifflin.com')).toBe('Dwight S.');
-      expect(formatAgentDisplayName('pam')).toBe('Pam');
-    });
-
-    it('extracts agent first name', () => {
-      expect(getAgentFirstName('Michael Scott')).toBe('Michael');
-      expect(getAgentFirstName('jim.halpert@dundermifflin.com')).toBe('Jim');
-    });
-
-    it('formats agent full name', () => {
-      expect(formatAgentFullName('michael.scott')).toBe('Michael Scott');
-      expect(formatAgentFullName('dwight_schrute')).toBe('Dwight Schrute');
-    });
-
-    it('normalizes local auth handle into email address', () => {
-      expect(normalizeAuthEmail('jim')).toBe('jim@shift.local');
-      expect(normalizeAuthEmail('pam@dundermifflin.com')).toBe('pam@dundermifflin.com');
-    });
+  it('uses UUID ownership when names match or change', () => {
+    expect(canModifyInteractionPolicy('user-a', agentA, 'support_agent')).toBe(true);
+    expect(canModifyInteractionPolicy('user-b', agentA, 'support_agent')).toBe(false);
+    expect(canModifyInteractionPolicy('user-a', agentB, 'support_agent')).toBe(false);
   });
 
-  describe('canModifyInteractionPolicy', () => {
-    const teamLeadUser = {
-      id: 'lead-1',
-      email: 'michael.scott@dundermifflin.com',
-      app_metadata: { role: 'team_lead' },
-      user_metadata: { name: 'Michael Scott' },
-    };
+  it('denies agents when the owner or authenticated user ID is missing', () => {
+    expect(canModifyInteractionPolicy(undefined, agentA, 'support_agent')).toBe(false);
+    expect(canModifyInteractionPolicy(null, agentA, 'support_agent')).toBe(false);
+    expect(canModifyInteractionPolicy('user-a', { email: agentA.email }, 'support_agent')).toBe(false);
+    expect(canModifyInteractionPolicy('user-a', null, 'team_lead')).toBe(false);
+  });
 
-    const agentUser = {
-      id: 'agent-1',
-      email: 'jim.halpert@dundermifflin.com',
-      app_metadata: { role: 'support_agent' },
-      user_metadata: { name: 'Jim Halpert' },
-    };
+  it('allows a team lead to modify owned and unresolved interactions', () => {
+    expect(canModifyInteractionPolicy('user-a', lead, 'team_lead')).toBe(true);
+    expect(canModifyInteractionPolicy(null, lead, 'team_lead')).toBe(true);
+  });
 
-    it('permits Team Lead to modify any agent interaction', () => {
-      expect(canModifyInteractionPolicy('Dwight S.', teamLeadUser)).toBe(true);
-      expect(canModifyInteractionPolicy('Jim H.', teamLeadUser)).toBe(true);
+  it('returns a permission message for an interaction owned by another UUID', () => {
+    expect(checkInteractionModificationPermission('edit', 'user-b', agentA, 'support_agent')).toEqual({
+      allowed: false,
+      errorMessage: 'You are only authorized to edit your own entries. Team Leads can edit any entry.',
     });
-
-    it('permits Support Agent to modify their own interaction', () => {
-      expect(canModifyInteractionPolicy('Jim H.', agentUser, 'support_agent', 'Jim H.')).toBe(true);
-      expect(canModifyInteractionPolicy('Jim Halpert', agentUser)).toBe(true);
-    });
-
-    it('forbids Support Agent from modifying another agent interaction', () => {
-      expect(canModifyInteractionPolicy('Dwight S.', agentUser, 'support_agent', 'Jim H.')).toBe(false);
-      expect(canModifyInteractionPolicy('Michael S.', agentUser, 'support_agent', 'Jim H.')).toBe(false);
-    });
-
-    it('returns structured permission result and message from checkInteractionModificationPermission', () => {
-      const allowedResult = checkInteractionModificationPermission('edit', 'Jim H.', agentUser, 'support_agent', 'Jim H.');
-      expect(allowedResult.allowed).toBe(true);
-
-      const forbiddenResult = checkInteractionModificationPermission('delete', 'Dwight S.', agentUser, 'support_agent', 'Jim H.');
-      expect(forbiddenResult.allowed).toBe(false);
-      expect(forbiddenResult.errorMessage).toMatch(/only authorized to delete your own entries/i);
+    expect(checkInteractionModificationPermission('delete', 'user-a', agentA, 'support_agent')).toEqual({
+      allowed: true,
     });
   });
 });

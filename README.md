@@ -39,7 +39,7 @@
   - [8. Interactive History & Data Management Table](#8-interactive-history--data-management-table)
   - [9. Dedicated Audit Trails (Edit & Delete Logs)](#9-dedicated-audit-trails-edit--delete-logs)
   - [10. Offline-First Resilience & Postgres Realtime WebSockets](#10-offline-first-resilience--postgres-realtime-websockets)
-  - [11. Parallel Master Google Sheets Synchronization](#11-parallel-master-google-sheets-synchronization)
+  - [11. Google Sheets Disabled for Pilot](#11-google-sheets-disabled-for-pilot)
   - [12. Advanced Reporting & OWASP-Sanitized Data Export](#12-advanced-reporting--owasp-sanitized-data-export)
   - [13. Operations Hub & Collapsible Sidebar Navigation](#13-operations-hub--collapsible-sidebar-navigation)
   - [14. Ergonomic Dark Mode & Shift-Optimized Theming](#14-ergonomic-dark-mode--shift-optimized-theming)
@@ -51,7 +51,7 @@
   - [Development Server](#development-server)
   - [Production Build & Verification](#production-build--verification)
 - [🗄 Database Setup & Supabase Schema](#-database-setup--supabase-schema)
-- [📊 Google Sheets Integration Setup](#-google-sheets-integration-setup)
+- [📊 Google Sheets Pilot Status](#-google-sheets-pilot-status)
 - [🔒 Security & Threat Mitigation](#-security--threat-mitigation)
 - [📄 License & Commercial Licensing](#-license--commercial-licensing)
 
@@ -68,7 +68,7 @@ The **Support Operations Hub** unifies daily technical support workflows, agent 
 - **Live Real-Time Sync**: Multi-agent synchronization over PostgreSQL Realtime WebSockets, keeping all active team members in sync instantly without manual page refreshes.
 - **Offline Reliability**: Optimistic UI updates backed by a FIFO offline queue that caches transactions locally during network disruptions and auto-flushes upon reconnection.
 - **Immutable Audit Trails**: Enterprise change management recording before-and-after JSON snapshots for all edited and deleted interaction logs.
-- **Parallel Master Google Sheets Sync**: Non-blocking background sync mirroring data into structured monthly tabs (`AUG 2026`, `SEP 2026`) in a Master Google Sheet with shared secret token authorization.
+- **Google Sheets**: Disabled for the pilot. CSV, XLSX, and clipboard exports remain available.
 - **Reporting & Data Portability**: Live KPI calculations, multi-dimensional search/filtering, and sanitized exports for both native Excel (`.xlsx`) and RFC-4180 CSV with OWASP formula injection protection.
 - **Ergonomic Theming**: Full-featured Dark Mode with deep slate surfaces (`slate-900` / `slate-950`) engineered for extended day and overnight shifts.
 
@@ -140,7 +140,6 @@ The **Support Operations Hub** unifies daily technical support workflows, agent 
 - **Channel Breakdown**: Compares Phone Calls vs. Chats for the current shift.
 
 ### 8. Interactive History & Data Management Table
-- **Direct Master Google Sheet Link**: One-click header button opens the connected Google Spreadsheet.
 - **Multi-Field Search**: Real-time filtering across Client Name, Agent Name, Product, Classification, Channel Details, and Notes.
 - **Multi-Dimensional Filters**: Filter by Date (All, Today, Custom), Channel, Status, Product, or In-Event flag.
 - **Deterministic Sorting**: Multi-tier sort by date and timestamps.
@@ -149,8 +148,8 @@ The **Support Operations Hub** unifies daily technical support workflows, agent 
 - **Visual Status Badges**: Color-coded status pills and attribute indicators for Support License eligibility, Live Event status, and First-Time User flags.
 
 ### 9. Dedicated Audit Trails (Edit & Delete Logs)
-- **Edit Audit (`interaction_edits_audit`)**: Every modification logs an immutable audit row recording the interaction ID, editing agent, timestamp, original agent, client name, previous vs. new status, and complete JSON snapshots of before/after states.
-- **Deletion Audit (`deleted_interactions_audit`)**: Deleting a record archives full interaction details into an audit archive with deleting agent and timestamp prior to deletion.
+- **Transactional Interaction Audit (`interaction_audit_events`)**: The database trigger records each committed insert, update, and delete with the actor UUID, database time, and reviewed before/after snapshots. An audit failure rolls back the interaction change.
+- **Legacy Audit History**: `interaction_edits_audit` and `deleted_interactions_audit` remain restricted historical data. The candidate app no longer writes to them. Their historical completeness is not verified.
 
 ### 10. Offline-First Resilience & Postgres Realtime WebSockets
 - **Postgres Realtime WebSockets**: Multi-agent synchronization updates all active screens without page refreshes.
@@ -158,12 +157,9 @@ The **Support Operations Hub** unifies daily technical support workflows, agent 
 - **Zero-Latency Local Cache**: Bootstraps cached state from `localStorage` instantly (0ms startup latency) before verifying cloud data.
 - **FIFO Offline Queue (`useSyncPipeline.ts`)**: Queues failed or offline operations locally. Listens for browser `online` events and triggers background retries with visual status indicators (`Connected`, `Syncing...`, `Offline`, `Sync Error`).
 
-### 11. Parallel Master Google Sheets Synchronization
-- **Non-Blocking Background Dispatch**: Dispatches asynchronous requests (`mode: 'no-cors'`) to a Google Apps Script Web App endpoint.
-- **Automatic Monthly Tabs**: Organizes entries by month into uppercase tabs (e.g. `AUG 2026`, `SEP 2026`), automatically created on the first entry of the month.
-- **Hidden UUID Column**: Stores unique record UUIDs in Column A (auto-hidden) for seamless row updates and deletions.
-- **Shared Secret Token Authentication**: Appends `?token=...` to sync requests, verified by the Apps Script `doPost()` handler to block unauthorized writes.
-- **Standardized Formatting**: Dark Slate (`#1E293B`) headers, middle vertical alignment, and Philippine Time (`Asia/Manila`, `HH:mm`) timestamps.
+### 11. Google Sheets Disabled for Pilot
+
+The pilot does not send interaction data to Google Sheets. Do not configure or deploy the legacy Apps Script endpoint. Revoke any existing deployment and rotate its previous token before pilot use. A future Sheets integration requires a separate reviewed release.
 
 ### 12. Advanced Reporting & OWASP-Sanitized Data Export
 - **CSV Export**: RFC-4180 compliant CSV generator with **OWASP CSV injection protection** (sanitizes `=, +, -, @, \t, \r` formula prefixes to prevent spreadsheet command execution).
@@ -232,7 +228,7 @@ support-operations-hub/
 │   │   ├── storage/                       # LocalStorage repositories & offline sync queue
 │   │   │   └── localStorageRepos.ts       # Local cache & offline FIFO queue storage
 │   │   ├── supabase/                      # Supabase client, repositories, mappers & audit
-│   │   │   ├── auditLogger.ts             # Audit trail recorder (edits & deletions)
+│   │   │   ├── auditLogger.ts             # Legacy audit adapter; candidate writes use DB triggers
 │   │   │   ├── client.ts                  # Supabase JS client instance & config checks
 │   │   │   ├── clientRepo.ts              # Supabase client CRM repository
 │   │   │   ├── configRepo.ts              # Cloud dynamic taxonomies repository
@@ -337,7 +333,7 @@ Create a `.env` file in the project root by copying `.env.example`:
 cp .env.example .env
 ```
 
-Refer to [`.env.example`](./.env.example) for the full list of configuration options (Supabase credentials, optional Google Sheets sync URLs and secret tokens, and helpdesk ticketing parameters).
+Refer to [`.env.example`](./.env.example) for the full list of configuration options (Supabase credentials and helpdesk ticketing parameters). Google Sheets configuration is not available for the pilot.
 
 ### Development Server
 
@@ -385,57 +381,45 @@ npm run preview
 
 ## 🗄 Database Setup & Supabase Schema
 
-The application uses Supabase PostgreSQL for persistence, authentication, and Realtime synchronization.
+The app uses Supabase Auth, PostgreSQL, and Realtime. Use the reviewed migrations in `supabase/migrations/`. The old schema example now contains instructions only. Do not run older copies that grant broad access.
 
-A ready-to-run schema template is provided in [`supabase-schema.example.sql`](./supabase-schema.example.sql).
+### Local database verification
 
-### Initializing the Database
+Install Docker and Node.js 22. Start the Docker engine. Use a local test stack with synthetic data:
 
-1. Open your project in the [Supabase Dashboard](https://supabase.com/).
-2. Navigate to **SQL Editor** from the left navigation bar.
-3. Open [`supabase-schema.example.sql`](./supabase-schema.example.sql), copy its contents, and paste them into a new query window.
-4. Click **Run** to execute the script.
+```bash
+npm ci --ignore-scripts
+npm run db:start
+npm run db:reset
+npm run test:db
+npm run test:db:legacy
+npm run db:stop
+```
 
-This sets up:
-- **Core Logging**: `interactions` table with channel, status, agent, and license tracking.
-- **Client CRM**: `clients` and `client_products` tables for company profiles, phone numbers, and equipment mappings.
-- **Audit Trails**: `interaction_edits_audit` and `deleted_interactions_audit` tables for immutable before/after JSON logging.
-- **Performance Indexes**: Multi-column indexes on `date`, `agent`, `client_name`, and audit foreign keys.
-- **Dynamic Taxonomies**: `catalog_products`, `catalog_classifications`, `marketing_resources`, and `support_tiers`.
-- **Security & Realtime**: Row Level Security (RLS) policies and Realtime publication on `interactions` and `clients`.
+`test:db:legacy` resets the local test database, loads the old example schema, applies the additive baseline and security controls, and checks data preservation. It refuses to run unless `SUPPORT_HUB_ISOLATED_DB_TEST=1` is set. Set that variable only after you confirm that this is a disposable local test stack. CI sets it in its isolated runner. Both database suites must pass. Do not use these reset commands with local records that you need to keep.
+
+### Security release order
+
+This branch is a release candidate. It does not establish production approval or SOC 2 compliance.
+
+1. Export and compare the actual schema. The baseline is a local reconstruction. Back up the data and verify a restore before a live migration.
+2. Reconcile old browser queues with the data owner. Do not assign unowned work to the next user. Delete legacy keys only after recovery or approved discard.
+3. Apply the reviewed schema and access controls in staging. Provision named staff in `private.staff_access` through trusted administration. Unknown staff have no business access. Do not infer historical owner UUIDs from names.
+4. Deploy `complete-password-change`. The function requires the server runtime Supabase credentials and an exact `SUPPORT_HUB_ALLOWED_ORIGINS` allowlist. Never place the service key in a `VITE_*` variable. Disable public registration.
+5. Verify the interaction audit trigger before deploying the app. Browser interaction audit writes have been removed. The app must not run against a database without the trigger.
+6. Run direct API and authenticated browser tests. Verify deactivation, session expiry, recovery, all open tabs, backups, headers, CSP, MFA, and incident alerts on the selected host.
+7. Require successful quality checks and reviews for the release commit. The Pages workflow includes the database gate. Configure equivalent protection for any other deployment path.
+8. Obtain named business, data, and security owner approval before a pilot with customer records.
+
+Customer caches and pending operations use tab session storage with a project and user scope. Cache lifetime is 30 minutes. Work older than 8 hours requires review. Voluntary logout offers retry, cancel, or explicit discard when work is pending. Automatic session loss can remove unsent work. The old unscoped keys remain for approved reconciliation and are never replayed by this app.
+
+Keep restrictive database access and audit controls during rollback. Do not restore permissive policies to make an old app work.
 
 ---
 
-## 📊 Google Sheets Integration Setup
+## 📊 Google Sheets Pilot Status
 
-The application supports parallel background synchronization to a Master Google Sheet without blocking the user interface.
-
-### Step 1: Create the Google Sheet
-1. Create a new Google Sheet (e.g. `Master Support Shift Summary`).
-2. Copy the spreadsheet URL and set it as `VITE_GOOGLE_SHEETS_URL` in your `.env`.
-
-### Step 2: Add the Apps Script Code
-1. In your Google Sheet, click **Extensions** > **Apps Script**.
-2. Delete any existing template code and paste the complete contents of [`google-sheets-v2-appscript.js`](./google-sheets-v2-appscript.js).
-3. Find the `SECRET_TOKEN` constant near the top of the script:
-   ```javascript
-   const SECRET_TOKEN = 'your-random-32-byte-hex-token';
-   ```
-   Set it to the exact same value configured in `VITE_GOOGLE_SHEETS_SECRET_TOKEN` in your `.env`.
-
-### Step 3: Deploy as a Web App
-1. Click **Deploy** > **New deployment**.
-2. Select type: **Web app**.
-3. Fill in the deployment details:
-   - **Description**: `Support Hub Master Sync v2`
-   - **Execute as**: `Me` (your Google account)
-   - **Who has access**: `Anyone`
-4. Click **Deploy** and authorize the script when prompted.
-5. Copy the generated **Web App URL** (ends in `/exec`) and assign it to `VITE_GOOGLE_SHEETS_WEBAPP_URL` in your `.env`.
-
-### Step 4: Verify
-1. Log a new interaction from the web application.
-2. Check your Google Sheet: a new tab for the current month (e.g. `SEP 2026`) will be created automatically with dark slate headers and formatted columns.
+Google Sheets synchronization is disabled for the pilot. [`scripts/reference/google-sheets-v2-appscript.js`](./scripts/reference/google-sheets-v2-appscript.js) is a legacy reference and rejects requests while its credential is missing or remains a placeholder. Do not deploy it. The owner must disable any existing deployed endpoint and rotate the previous token. Repository changes do not verify deployed endpoint status.
 
 ---
 
@@ -444,10 +428,9 @@ The application supports parallel background synchronization to a Master Google 
 | Security Feature | Implementation | Threat Addressed |
 | :--- | :--- | :--- |
 | **Breach Verification** | HaveIBeenPwned k-Anonymity API (`passwordSecurity.ts`) | Prevents agents from reusing breached passwords; only first 5 chars of SHA-1 hash sent. |
-| **OWASP CSV Escaping** | Cell prefix sanitization (`csvExporter.ts`) | Blocks Formula Injection / CSV Injection attacks (`=, +, -, @, \t, \r`) when opening exports in Excel. |
-| **Shared Secret Token** | Apps Script URL query parameter token | Blocks unauthorized third parties from writing or deleting rows in your Master Google Sheet. |
+| **Spreadsheet Text Safety** | Formula prefixes are neutralized in CSV and clipboard output; XLSX cells use string types. | Keeps untrusted text literal in supported exports. |
 | **Agent Identity Locking** | Supabase Auth session identity binding | Prevents agents from submitting logs under other agents' identities. |
-| **Audit Trails** | `interaction_edits_audit` & `deleted_interactions_audit` | Immutable change logs preserving before-and-after states for enterprise auditing. |
+| **Interaction Audit** | Transactional `interaction_audit_events` trigger | Records committed interaction changes with actor UUIDs and reviewed snapshots; legacy audit rows remain restricted history. |
 | **HTTP Security Headers** | Configured in `vercel.json` | Enforces `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and strict `Referrer-Policy`. |
 
 ---

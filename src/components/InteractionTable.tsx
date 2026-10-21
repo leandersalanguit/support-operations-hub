@@ -33,15 +33,11 @@ interface InteractionTableProps {
   currentUser?: any;
   /** Current user role */
   userRole?: UserRole;
-  /** Current agent display name */
-  currentAgentName?: string;
   /** Callback function triggered when the user clicks the edit button on a row */
   onEdit: (interaction: Interaction) => void;
   /** Callback function triggered when the user clicks the delete button on a row */
   onDelete: (interaction: Interaction) => void;
 }
-
-const GOOGLE_SHEETS_URL = import.meta.env.VITE_GOOGLE_SHEETS_URL;
 
 /**
  * @component InteractionTable
@@ -51,7 +47,6 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
   interactions,
   currentUser,
   userRole,
-  currentAgentName,
   onEdit,
   onDelete,
 }) => {
@@ -210,7 +205,6 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
         hasActiveFilters={hasActiveFilters}
         onClearAllFilters={clearAllFilters}
         onScrollToBottom={handleScrollToBottom}
-        googleSheetsUrl={GOOGLE_SHEETS_URL}
       />
 
       {/* Main Table Display */}
@@ -264,7 +258,6 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
                   supportTiers={supportTiers}
                   currentUser={currentUser}
                   userRole={userRole}
-                  currentAgentName={currentAgentName}
                   isNoteExpanded={!!expandedNotes[item.id]}
                   onToggleNoteExpand={toggleNoteExpand}
                   onCopyRow={handleCopyRow}

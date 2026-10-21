@@ -1,22 +1,22 @@
 /**
  * @file useInteractionWorkflow.ts
  * @description Application workflow hook managing support interactions:
- * optimistic local state, background Supabase persistence, Sheets dispatch,
- * offline retry queuing, Postgres Realtime subscriptions, and audit snapshots.
+ * optimistic local state, scoped session persistence, offline retry queuing,
+ * and Postgres Realtime subscriptions.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { SupportInteraction, InteractionFormData } from '../domain/interaction/types';
 import { resolveInteractionTimestamp } from '../domain/interaction/timestamp';
 import {
   loadCachedInteractions,
   saveCachedInteractions,
+  createStorageScope,
 } from '../infrastructure/storage/localStorageRepos';
+import { clearCustomerSession, getCustomerSessionGeneration, isCustomerSessionGenerationCurrent, notifyStaffAccessInvalidated, subscribeCustomerSessionCleared, StorageScope } from '../infrastructure/storage/scopedSessionStore';
 import { interactionRepo } from '../infrastructure/supabase/interactionRepo';
-import { auditLogger } from '../infrastructure/supabase/auditLogger';
-import { syncToGoogleSheets } from '../infrastructure/sheets/googleSheetsSyncAdapter';
-import { isSupabaseConfigured } from '../infrastructure/supabase/client';
+import { isAccessDeniedError, isSupabaseConfigured } from '../infrastructure/supabase/client';
 import { useSyncPipeline } from './useSyncPipeline';
 import { generateUUID } from '../utils/uuid';
 import { getMockInitialInteractions } from '../data/mockDemoData';
@@ -26,7 +26,12 @@ export interface UseInteractionWorkflowProps {
   currentAgentName: string;
   isPasswordChangeRequired: boolean;
   isDemoMode?: boolean;
+  onAccessRecheck?: () => void | Promise<unknown>;
   onClientLogged?: (params: { clientName: string; phoneNumber?: string; productName?: string; agentName: string }) => void;
+}
+
+function isCurrentSession(generation: number, current: StorageScope | null | undefined, expected: StorageScope | null | undefined): boolean {
+  return isCustomerSessionGenerationCurrent(generation) && current?.userId === expected?.userId && current?.projectId === expected?.projectId;
 }
 
 export function useInteractionWorkflow({
@@ -34,15 +39,20 @@ export function useInteractionWorkflow({
   currentAgentName,
   isPasswordChangeRequired,
   isDemoMode = false,
+  onAccessRecheck,
   onClientLogged,
 }: UseInteractionWorkflowProps) {
+  const storageScope = useMemo(() => createStorageScope(currentUser?.id, isDemoMode), [currentUser?.id, isDemoMode]);
+  const currentScopeRef = useRef<StorageScope | null>(storageScope);
+  currentScopeRef.current = storageScope;
+  const hydratedSnapshotRef = useRef<{ scopeKey: string; serialized: string } | null>(null);
   // Master interaction state initialized from local cache for 0ms startup
   const [interactions, setInteractions] = useState<SupportInteraction[]>(() => {
-    const cached = loadCachedInteractions();
+    const cached = loadCachedInteractions(storageScope || undefined);
     if (cached && cached.length > 0) return cached;
     if (isDemoMode) {
       const mock = getMockInitialInteractions();
-      saveCachedInteractions(mock);
+      saveCachedInteractions(storageScope || undefined, mock);
       return mock;
     }
     return [];
@@ -50,7 +60,44 @@ export function useInteractionWorkflow({
   const [editingInteraction, setEditingInteraction] = useState<SupportInteraction | null>(null);
   const [deletingInteraction, setDeletingInteraction] = useState<SupportInteraction | null>(null);
 
-  const sync = useSyncPipeline(currentUser, isPasswordChangeRequired);
+  const sync = useSyncPipeline(currentUser, isPasswordChangeRequired, storageScope);
+
+  const handleAccessRecheck = useCallback((scope?: StorageScope | null) => {
+    hydratedSnapshotRef.current = {
+      scopeKey: scope ? JSON.stringify([scope.projectId, scope.userId]) : '',
+      serialized: JSON.stringify([]),
+    };
+    clearCustomerSession(scope || undefined);
+    setInteractions([]);
+    sync.clearQueue();
+    notifyStaffAccessInvalidated();
+    try {
+      void Promise.resolve(onAccessRecheck?.()).catch((error) => {
+        console.warn('Notice: Failed to refresh staff access after a denied interaction change:', error);
+      });
+    } catch (error) {
+      console.warn('Notice: Failed to refresh staff access after a denied interaction change:', error);
+    }
+  }, [onAccessRecheck, sync.clearQueue]);
+
+  useEffect(() => {
+    const cached = storageScope ? loadCachedInteractions(storageScope) : [];
+    const scopeKey = storageScope ? JSON.stringify([storageScope.projectId, storageScope.userId]) : '';
+    hydratedSnapshotRef.current = { scopeKey, serialized: JSON.stringify(cached) };
+    setInteractions(cached);
+    setEditingInteraction(null);
+    setDeletingInteraction(null);
+    return subscribeCustomerSessionCleared(() => {
+      if (storageScope) clearCustomerSession(storageScope);
+      hydratedSnapshotRef.current = {
+        scopeKey: storageScope ? JSON.stringify([storageScope.projectId, storageScope.userId]) : '',
+        serialized: JSON.stringify([]),
+      };
+      setInteractions([]);
+      setEditingInteraction(null);
+      setDeletingInteraction(null);
+    });
+  }, [storageScope]);
 
   // If transitioning to demo mode and interactions list is empty, seed mock data
   useEffect(() => {
@@ -58,27 +105,39 @@ export function useInteractionWorkflow({
       setInteractions((prev) => {
         if (prev.length === 0) {
           const mock = getMockInitialInteractions();
-          saveCachedInteractions(mock);
+          saveCachedInteractions(storageScope || undefined, mock);
           return mock;
         }
         return prev;
       });
     }
-  }, [isDemoMode]);
+  }, [isDemoMode, storageScope]);
 
   // Sync to local storage whenever interactions change (debounced 300ms)
   useEffect(() => {
-    if (!currentUser || isPasswordChangeRequired) return;
-    const timer = setTimeout(() => saveCachedInteractions(interactions), 300);
+    if (!storageScope || (!isDemoMode && isPasswordChangeRequired)) return;
+    const sessionGeneration = getCustomerSessionGeneration();
+    const scopeKey = JSON.stringify([storageScope.projectId, storageScope.userId]);
+    const serialized = JSON.stringify(interactions);
+    if (hydratedSnapshotRef.current?.scopeKey === scopeKey && hydratedSnapshotRef.current.serialized === serialized) return;
+    const timer = setTimeout(() => {
+      if (!isCustomerSessionGenerationCurrent(sessionGeneration) || !isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
+      if (hydratedSnapshotRef.current?.scopeKey === scopeKey && hydratedSnapshotRef.current.serialized === serialized) return;
+      if (saveCachedInteractions(storageScope, interactions)) {
+        hydratedSnapshotRef.current = { scopeKey, serialized };
+      }
+    }, 300);
     return () => clearTimeout(timer);
-  }, [interactions, currentUser, isPasswordChangeRequired]);
+  }, [interactions, storageScope, isDemoMode, isPasswordChangeRequired]);
 
   // Initial load from Supabase & Postgres Realtime subscription
   useEffect(() => {
-    if (isDemoMode || !isSupabaseConfigured || !currentUser || isPasswordChangeRequired) {
+    if (isDemoMode || !isSupabaseConfigured || !currentUser || isPasswordChangeRequired || !storageScope) {
       if (isDemoMode || !isSupabaseConfigured) sync.setSyncStatus('offline');
       return;
     }
+    const scope = storageScope;
+    const sessionGeneration = getCustomerSessionGeneration();
 
     let isMounted = true;
 
@@ -86,19 +145,20 @@ export function useInteractionWorkflow({
       sync.setSyncStatus('syncing');
       try {
         const remoteData = await interactionRepo.getAll();
-        if (!isMounted) return;
+        if (!isMounted || !isCurrentSession(sessionGeneration, currentScopeRef.current, scope)) return;
 
         if (remoteData) {
           setInteractions(remoteData);
-          saveCachedInteractions(remoteData);
+          saveCachedInteractions(scope, remoteData);
           sync.setSyncStatus('connected');
-          if (sync.pendingSyncCount > 0) {
-            sync.drainQueue();
-          }
+          if (sync.pendingSyncCount > 0) sync.drainQueue();
         }
       } catch (err) {
         console.error('Failed to load interactions from Supabase:', err);
-        if (isMounted) sync.setSyncStatus('error');
+        if (isMounted && isCurrentSession(sessionGeneration, currentScopeRef.current, scope)) {
+          sync.setSyncStatus('error');
+          if (isAccessDeniedError(err)) handleAccessRecheck(scope);
+        }
       }
     }
 
@@ -107,17 +167,20 @@ export function useInteractionWorkflow({
     // Subscribe to Postgres Realtime changes
     const unsubscribe = interactionRepo.subscribeRealtime({
       onInsert: (newInteraction: SupportInteraction) => {
+        if (!isMounted || !isCurrentSession(sessionGeneration, currentScopeRef.current, scope)) return;
         setInteractions((prev) => {
           if (prev.some((item) => item.id === newInteraction.id)) return prev;
           return [newInteraction, ...prev];
         });
       },
       onUpdate: (updatedInteraction: SupportInteraction) => {
+        if (!isMounted || !isCurrentSession(sessionGeneration, currentScopeRef.current, scope)) return;
         setInteractions((prev) =>
           prev.map((item) => (item.id === updatedInteraction.id ? updatedInteraction : item))
         );
       },
       onDelete: (deletedId: string) => {
+        if (!isMounted || !isCurrentSession(sessionGeneration, currentScopeRef.current, scope)) return;
         setInteractions((prev) => prev.filter((item) => item.id !== deletedId));
       },
     });
@@ -126,10 +189,11 @@ export function useInteractionWorkflow({
       isMounted = false;
       unsubscribe();
     };
-  }, [currentUser, isPasswordChangeRequired]);
+  }, [currentUser, isPasswordChangeRequired, storageScope, handleAccessRecheck]);
 
   // Add Interaction
   const addInteraction = useCallback(async (formData: InteractionFormData) => {
+    const sessionGeneration = getCustomerSessionGeneration();
     const { time: resolvedTime, createdAt: resolvedCreatedAt } = resolveInteractionTimestamp(formData.date);
 
     const newInteraction: SupportInteraction = {
@@ -143,20 +207,21 @@ export function useInteractionWorkflow({
     // 1. Optimistic prepend
     setInteractions((prev) => [newInteraction, ...prev]);
 
-    // 2. Google Sheets sync (non-blocking)
-    if (!isDemoMode) {
-      syncToGoogleSheets('insert', newInteraction);
-    }
-
     // 3. Cloud persistence
     if (!isDemoMode && isSupabaseConfigured) {
       sync.setSyncStatus('syncing');
       try {
         await interactionRepo.insert(newInteraction);
-        sync.markSyncSuccess(newInteraction.id);
+        if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
+        sync.markSyncSuccess(newInteraction.id, sessionGeneration);
       } catch (err: any) {
+        if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
+        if (isAccessDeniedError(err)) {
+          handleAccessRecheck(storageScope);
+          return;
+        }
         console.error('Failed to save to Supabase:', err);
-        sync.enqueueFailedSync('insert', newInteraction.id, newInteraction, err.message);
+        sync.enqueueFailedSync('insert', newInteraction.id, newInteraction, err.message, sessionGeneration);
       }
     }
 
@@ -176,34 +241,30 @@ export function useInteractionWorkflow({
         agentName: currentAgentName,
       });
     }
-  }, [currentAgentName, currentUser, isDemoMode, onClientLogged, sync]);
+  }, [currentAgentName, currentUser, isDemoMode, onClientLogged, sync, storageScope, handleAccessRecheck]);
 
   // Edit Interaction
   const saveEdit = useCallback(async (updated: SupportInteraction) => {
-    const previous = editingInteraction || interactions.find((i) => i.id === updated.id);
-
+    const sessionGeneration = getCustomerSessionGeneration();
     // 1. Optimistic update
     setInteractions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
 
-    // 2. Google Sheets sync (non-blocking)
-    if (!isDemoMode) {
-      syncToGoogleSheets('update', updated);
-    }
-
-    // 3. Cloud persistence and audit logging
+    // 3. Cloud persistence. Release requires the database audit trigger.
     if (!isDemoMode && isSupabaseConfigured) {
       sync.setSyncStatus('syncing');
 
-      if (previous) {
-        auditLogger.recordEdit(previous, updated, currentAgentName).catch(console.warn);
-      }
-
       try {
         await interactionRepo.update(updated);
-        sync.markSyncSuccess(updated.id);
+        if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
+        sync.markSyncSuccess(updated.id, sessionGeneration);
       } catch (err: any) {
+        if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
+        if (isAccessDeniedError(err)) {
+          handleAccessRecheck(storageScope);
+          return;
+        }
         console.error('Failed to update Supabase:', err);
-        sync.enqueueFailedSync('update', updated.id, updated, err.message);
+        sync.enqueueFailedSync('update', updated.id, updated, err.message, sessionGeneration);
       }
     }
 
@@ -225,44 +286,45 @@ export function useInteractionWorkflow({
     }
 
     setEditingInteraction(null);
-  }, [currentAgentName, editingInteraction, interactions, isDemoMode, onClientLogged, sync]);
+  }, [currentAgentName, editingInteraction, interactions, isDemoMode, onClientLogged, sync, storageScope, handleAccessRecheck]);
 
   // Delete Interaction
   const confirmDelete = useCallback(async () => {
     if (!deletingInteraction) return;
+    const sessionGeneration = getCustomerSessionGeneration();
     const target = deletingInteraction;
 
     // 1. Optimistic delete
     setInteractions((prev) => prev.filter((item) => item.id !== target.id));
 
-    // 2. Google Sheets sync (non-blocking)
-    if (!isDemoMode) {
-      syncToGoogleSheets('delete', target);
-    }
-
-    // 3. Cloud persistence and audit logging
+    // 3. Cloud persistence. Release requires the database audit trigger.
     if (!isDemoMode && isSupabaseConfigured) {
       sync.setSyncStatus('syncing');
 
-      auditLogger.recordDelete(target, currentAgentName).catch(console.warn);
-
       try {
         await interactionRepo.delete(target.id);
-        sync.markSyncSuccess(target.id);
+        if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
+        sync.markSyncSuccess(target.id, sessionGeneration);
       } catch (err: any) {
+        if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
+        if (isAccessDeniedError(err)) {
+          handleAccessRecheck(storageScope);
+          return;
+        }
         console.error('Failed to delete from Supabase:', err);
-        sync.enqueueFailedSync('delete', target.id, { id: target.id }, err.message);
+        sync.enqueueFailedSync('delete', target.id, { id: target.id }, err.message, sessionGeneration);
       }
     }
 
     setDeletingInteraction(null);
-  }, [currentAgentName, deletingInteraction, isDemoMode, sync]);
+  }, [currentAgentName, deletingInteraction, isDemoMode, sync, storageScope, handleAccessRecheck]);
 
   const resetSampleData = useCallback(async () => {
+    const sessionGeneration = getCustomerSessionGeneration();
     if (isDemoMode) {
       const mock = getMockInitialInteractions();
       setInteractions(mock);
-      saveCachedInteractions(mock);
+      saveCachedInteractions(storageScope || undefined, mock);
       return;
     }
 
@@ -270,24 +332,31 @@ export function useInteractionWorkflow({
       sync.setSyncStatus('syncing');
       try {
         const remoteData = await interactionRepo.getAll();
+        if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
         if (remoteData) {
           setInteractions(remoteData);
-          saveCachedInteractions(remoteData);
+          saveCachedInteractions(storageScope || undefined, remoteData);
           sync.setSyncStatus('connected');
           return;
         }
       } catch (err) {
+        if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
         console.warn('Notice: Failed to fetch interactions on reset:', err);
+        if (isAccessDeniedError(err)) {
+          handleAccessRecheck(storageScope);
+          return;
+        }
       }
     }
+    if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
     setInteractions([]);
-    saveCachedInteractions([]);
-  }, [isDemoMode, sync]);
+    saveCachedInteractions(storageScope || undefined, []);
+  }, [isDemoMode, sync, storageScope, handleAccessRecheck]);
 
   const clearAllInteractions = useCallback(() => {
     setInteractions([]);
-    saveCachedInteractions([]);
-  }, []);
+    saveCachedInteractions(storageScope || undefined, []);
+  }, [storageScope]);
 
   return {
     interactions,

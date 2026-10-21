@@ -48,11 +48,12 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     currentUser,
     authLoading,
     isPasswordChangeRequired,
-    setIsPasswordChangeRequired,
+    refreshAccessState,
+    updatePassword,
+    signOut,
     userRole,
     currentAgentName,
     currentAgentFullName,
-    signOut,
     isDemoMode,
     isDemoAvailable,
     activePersonaId,
@@ -73,7 +74,9 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     currentUser,
     isPasswordChangeRequired,
     currentAgentName,
-    isDemoMode
+    isDemoMode,
+    refreshAccessState,
+    userRole
   );
 
   // ---------------------------------------------------------------------------
@@ -96,6 +99,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     currentAgentName,
     isPasswordChangeRequired,
     isDemoMode,
+    onAccessRecheck: refreshAccessState,
     onClientLogged: recordClientInteraction,
   });
 
@@ -106,6 +110,28 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showPendingLogout, setShowPendingLogout] = useState(false);
+
+  const handleSignOut = useCallback(() => {
+    if (sync.pendingSyncCount > 0) {
+      setShowPendingLogout(true);
+      return;
+    }
+    void signOut();
+  }, [signOut, sync.pendingSyncCount]);
+
+  const retryThenSignOut = useCallback(async () => {
+    if (await sync.drainQueue()) {
+      setShowPendingLogout(false);
+      await signOut();
+    }
+  }, [signOut, sync]);
+
+  const discardAndSignOut = useCallback(async () => {
+    sync.clearQueue();
+    setShowPendingLogout(false);
+    await signOut();
+  }, [signOut, sync]);
 
   // Guard admin tabs from non-lead roles
   React.useEffect(() => {
@@ -130,10 +156,9 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     (item: Interaction) => {
       const authCheck = checkInteractionModificationPermission(
         'edit',
-        item.agent,
+        item.agentId,
         currentUser,
-        userRole,
-        currentAgentName
+        userRole
       );
       if (!authCheck.allowed) {
         setErrorMessage(
@@ -151,10 +176,9 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     (item: Interaction) => {
       const authCheck = checkInteractionModificationPermission(
         'delete',
-        item.agent,
+        item.agentId,
         currentUser,
-        userRole,
-        currentAgentName
+        userRole
       );
       if (!authCheck.allowed) {
         setErrorMessage(
@@ -200,9 +224,10 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
       <AuthModal
         user={currentUser}
         isPasswordChangeRequired={isPasswordChangeRequired}
-        onAuthSuccess={() => {
-          setIsPasswordChangeRequired(false);
-        }}
+        isAccessUnavailable={Boolean(currentUser && (!auth.staffAccessState || !auth.staffAccessState.active))}
+        onAuthSuccess={() => { void refreshAccessState(); }}
+        onCompletePasswordChange={updatePassword}
+        onSignOut={() => { void signOut(); }}
         onEnterDemo={isDemoAvailable ? enterDemoMode : undefined}
       />
     );
@@ -230,7 +255,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
         userRole={userRole}
         theme={theme}
         onToggleTheme={toggleTheme}
-        onSignOut={signOut}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Content Area & Top Navbar */}
@@ -259,7 +284,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
           onResetSampleData={resetSampleData}
           onClearAll={clearAllInteractions}
           onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
-          onSignOut={signOut}
+          onSignOut={handleSignOut}
         />
 
         {/* Cloud Sync / Error Notification Banner */}
@@ -322,7 +347,6 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
                   interactions={interactions}
                   currentUser={currentUser}
                   userRole={userRole}
-                  currentAgentName={currentAgentName}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                 />
@@ -333,6 +357,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
             <ClientDirectory
               clients={clients}
               currentAgentName={currentAgentName}
+              userRole={userRole}
               onUpdateClients={updateClients}
               onNavigateToSummary={() => setActiveTab('shift-summary')}
             />
@@ -404,6 +429,30 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
         onClose={handleCloseDeleteModal}
         onConfirm={confirmDelete}
       />
+
+      {showPendingLogout && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-labelledby="pending-logout-title">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900">
+            <h2 id="pending-logout-title" className="text-lg font-bold">Unsent changes are waiting</h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+              {sync.pendingSyncCount} change(s) are stored in this tab. They may be lost when the session ends.
+              {sync.reviewCount > 0 && ` ${sync.reviewCount} require review before retry.`}
+            </p>
+            {sync.reviewItems.length > 0 && (
+              <ul className="mt-3 max-h-32 space-y-1 overflow-y-auto text-xs text-slate-600 dark:text-slate-300">
+                {sync.reviewItems.map((item) => (
+                  <li key={item.id}>{item.operation} for interaction {item.interactionId} needs review.</li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-5 flex flex-col gap-2">
+              <button type="button" onClick={() => { void retryThenSignOut(); }} className="rounded-lg bg-fotoblue-700 px-4 py-2 text-sm font-semibold text-white">Retry changes, then sign out</button>
+              <button type="button" onClick={() => setShowPendingLogout(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-700">Cancel sign out</button>
+              <button type="button" onClick={() => { void discardAndSignOut(); }} className="rounded-lg border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-800 dark:text-rose-300">Discard changes and sign out</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

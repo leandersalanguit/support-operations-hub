@@ -7,8 +7,6 @@
 export default {
   plugins: {
     // Process Tailwind utility classes
-    tailwindcss: {},
-    // Add vendor prefixes to CSS rules
-    autoprefixer: {},
+    '@tailwindcss/postcss': {},
   },
 }
