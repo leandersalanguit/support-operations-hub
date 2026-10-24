@@ -72,7 +72,7 @@ SELECT is(
   'typed date assignment round-trips'
 );
 SELECT is(
-  (SELECT time FROM public.interactions
+  (SELECT time::time FROM public.interactions
    WHERE id = '33000000-0000-4000-8000-000000000011'),
   TIME '14:30:17',
   'typed time assignment round-trips'
