@@ -438,6 +438,8 @@ export const InteractionForm: React.FC<InteractionFormProps> = React.memo(({
    * Keyboard shortcut: Ctrl+Enter or Cmd+Enter to submit the form.
    */
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.defaultPrevented) return;
+
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
       suppressPhoneEmptyErrorRef.current = false;
