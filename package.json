@@ -13,7 +13,7 @@
     "db:start": "npx --yes supabase@2.121.0 start",
     "db:reset": "npx --yes supabase@2.121.0 db reset --local --no-seed",
     "db:stop": "npx --yes supabase@2.121.0 stop",
-    "test:db": "npx --yes supabase@2.121.0 test db --local supabase/tests/database",
+    "test:db": "npx --yes supabase@2.121.0 test db --local sql/supabase/tests/database",
     "test:db:legacy": "node scripts/test-db-legacy.mjs"
   },
   "dependencies": {

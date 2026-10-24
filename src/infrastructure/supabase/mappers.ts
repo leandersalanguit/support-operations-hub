@@ -134,6 +134,8 @@ export function mapDbToClient(db: DbClient): ClientProfile {
     phoneNumbers: numbers,
     phoneNumber: numbers[0] || undefined,
     ownedProducts,
+    manuallyOwnedProducts: ownedProducts,
+    interactionProducts: [],
     createdAt: db.created_at,
     updatedAt: db.updated_at,
     lastLoggedBy: db.last_logged_by || undefined,

@@ -94,6 +94,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     resetSampleData,
     clearAllInteractions,
     sync,
+      clientSyncErrorMessage,
   } = useInteractionWorkflow({
     currentUser,
     currentAgentName,
@@ -141,7 +142,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
   }, [activeTab, userRole]);
 
   // Surface sync errors into error banner if any
-  const effectiveError = errorMessage || sync.syncErrorMessage;
+  const effectiveError = errorMessage || clientSyncErrorMessage || sync.syncErrorMessage;
 
   // ---------------------------------------------------------------------------
   // 7. SMOOTH SCROLL ANIMATION FOR FORM SUBMISSION

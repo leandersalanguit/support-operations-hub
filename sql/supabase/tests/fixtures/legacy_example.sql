@@ -120,6 +120,19 @@ VALUES ('20000000-0000-4000-8000-000000000997', 'create', 'Legacy fixture produc
   '{"fixture":"legacy"}'::jsonb, 'Legacy fixture actor',
   '20000000-0000-4000-8000-000000000998');
 
+-- The full migration sequence must not choose between case-variant clients.
+INSERT INTO public.clients(id, name) VALUES
+  ('20000000-0000-4000-8000-000000000981', 'Legacy Ambiguous Owner'),
+  ('20000000-0000-4000-8000-000000000982', 'legacy ambiguous owner'),
+  ('20000000-0000-4000-8000-000000000983', 'Legacy Unique Owner');
+INSERT INTO public.interactions
+  (id, date, day_of_week, agent, agent_id, client_name, channel, client_product, case_classification, status)
+VALUES
+  ('20000000-0000-4000-8000-000000000984', '2026-10-24', 'Saturday', 'Legacy fixture actor',
+   '20000000-0000-4000-8000-000000000998', 'Legacy Ambiguous Owner', 'Call', 'Legacy product', 'General', 'Open'),
+  ('20000000-0000-4000-8000-000000000985', '2026-10-24', 'Saturday', 'Legacy fixture actor',
+   '20000000-0000-4000-8000-000000000998', 'Legacy Unique Owner', 'Call', 'Legacy product', 'General', 'Open');
+
 CREATE TABLE IF NOT EXISTS public.catalog_classifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL UNIQUE,

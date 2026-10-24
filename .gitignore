@@ -30,8 +30,16 @@ dist-ssr
 *.sw?
 
 # Database / SQL scripts
+/sql/
+!/sql/
+/sql/*
+!/sql/supabase/
+/sql/supabase/*
+!/sql/supabase/tests/
 *.sql
 !*.example.sql
+!/sql/supabase/tests/database/*.sql
+!/sql/supabase/tests/fixtures/*.sql
 !/supabase/migrations/*.sql
 !/supabase/tests/database/*.sql
 !/supabase/tests/fixtures/*.sql
@@ -42,6 +50,36 @@ google-sheets-v2-appscript.js
 # Agent & local assistant directories
 .agents/
 .agents
+.claude/
+.codex/
+.codex-worktrees/
+/output/
+/tmp/
+tasks/
+
+# Generated local knowledge graph (rebuild with graphify extract . --code-only)
+graphify-out/
 
 # Local documentation
 /docs/
+!/docs/
+/docs/*
+!/docs/superpowers/
+/docs/superpowers/*
+!/docs/superpowers/specs/
+/docs/superpowers/specs/*
+!/docs/superpowers/plans/
+/docs/superpowers/plans/*
+!/docs/superpowers/specs/2026-10-24-google-sheets-sync.md
+!/docs/superpowers/plans/2026-10-24-google-sheets-sync.md
+!/docs/superpowers/plans/2026-10-24-google-sheets-sync-ledger.md
+!/docs/google-sheets-sync-deployment.md
+
+# Keep the repository's Ponytail skill available to Codex; ignore other agent state.
+!.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/ponytail/
+!.agents/skills/ponytail/**
+AGENTS.md
