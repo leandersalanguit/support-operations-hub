@@ -53,6 +53,7 @@ google-sheets-v2-appscript.js
 .claude/
 .codex/
 .codex-worktrees/
+.superpowers/
 /output/
 /tmp/
 tasks/
@@ -60,19 +61,13 @@ tasks/
 # Generated local knowledge graph (rebuild with graphify extract . --code-only)
 graphify-out/
 
-# Local documentation
-/docs/
-!/docs/
+# Local harness configuration and execution records
+/CLAUDE.md
+/RTK.md
+/.graphifyignore
+
+# Keep deployment guidance; exclude local planning and generated documentation.
 /docs/*
-!/docs/superpowers/
-/docs/superpowers/*
-!/docs/superpowers/specs/
-/docs/superpowers/specs/*
-!/docs/superpowers/plans/
-/docs/superpowers/plans/*
-!/docs/superpowers/specs/2026-10-24-google-sheets-sync.md
-!/docs/superpowers/plans/2026-10-24-google-sheets-sync.md
-!/docs/superpowers/plans/2026-10-24-google-sheets-sync-ledger.md
 !/docs/google-sheets-sync-deployment.md
 
 AGENTS.md
