@@ -36,18 +36,19 @@ SELECT '33000000-0000-4000-8000-000000000011',
 FROM new_client;
 GRANT SELECT ON ownership_rpc_fixture TO authenticated;
 
+SELECT set_config('request.jwt.claim.sub', '33000000-0000-4000-8000-000000000001', true);
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SET LOCAL ROLE authenticated;
+
 INSERT INTO public.interactions
   (id, date, day_of_week, agent, agent_id, client_name, channel, client_product,
    case_classification, status)
 SELECT fixture.interaction_id, current_date, 'Monday', 'Ownership RPC Regression',
   '33000000-0000-4000-8000-000000000001',
   'Codex RPC Client 33000000-0000-4000-8000-000000000011',
-  'Call', 'Initial Product', 'General', 'Open'
+  'Call', fixture.old_product, 'General', 'Open'
 FROM ownership_rpc_fixture AS fixture;
 
-SELECT set_config('request.jwt.claim.sub', '33000000-0000-4000-8000-000000000001', true);
-SELECT set_config('request.jwt.claim.role', 'authenticated', true);
-SET LOCAL ROLE authenticated;
 
 SELECT public.update_interaction_with_ownership_choice(
   fixture.interaction_id,
