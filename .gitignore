@@ -75,11 +75,4 @@ graphify-out/
 !/docs/superpowers/plans/2026-10-24-google-sheets-sync-ledger.md
 !/docs/google-sheets-sync-deployment.md
 
-# Keep the repository's Ponytail skill available to Codex; ignore other agent state.
-!.agents/
-.agents/*
-!.agents/skills/
-.agents/skills/*
-!.agents/skills/ponytail/
-!.agents/skills/ponytail/**
 AGENTS.md
