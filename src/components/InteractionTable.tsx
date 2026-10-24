@@ -37,6 +37,8 @@ interface InteractionTableProps {
   onEdit: (interaction: Interaction) => void;
   /** Callback function triggered when the user clicks the delete button on a row */
   onDelete: (interaction: Interaction) => void;
+  /** Validated URL for the read-only Google Sheets workbook shortcut */
+  sheetsShortcutUrl?: string | null;
 }
 
 /**
@@ -49,6 +51,7 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
   userRole,
   onEdit,
   onDelete,
+  sheetsShortcutUrl,
 }) => {
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -205,6 +208,7 @@ export const InteractionTable: React.FC<InteractionTableProps> = React.memo(({
         hasActiveFilters={hasActiveFilters}
         onClearAllFilters={clearAllFilters}
         onScrollToBottom={handleScrollToBottom}
+        sheetsShortcutUrl={sheetsShortcutUrl}
       />
 
       {/* Main Table Display */}

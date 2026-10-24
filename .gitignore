@@ -30,8 +30,16 @@ dist-ssr
 *.sw?
 
 # Database / SQL scripts
+/sql/
+!/sql/
+/sql/*
+!/sql/supabase/
+/sql/supabase/*
+!/sql/supabase/tests/
 *.sql
 !*.example.sql
+!/sql/supabase/tests/database/*.sql
+!/sql/supabase/tests/fixtures/*.sql
 !/supabase/migrations/*.sql
 !/supabase/tests/database/*.sql
 !/supabase/tests/fixtures/*.sql
@@ -42,6 +50,24 @@ google-sheets-v2-appscript.js
 # Agent & local assistant directories
 .agents/
 .agents
+.claude/
+.codex/
+.codex-worktrees/
+.superpowers/
+/output/
+/tmp/
+tasks/
 
-# Local documentation
-/docs/
+# Generated local knowledge graph (rebuild with graphify extract . --code-only)
+graphify-out/
+
+# Local harness configuration and execution records
+/CLAUDE.md
+/RTK.md
+/.graphifyignore
+
+# Keep deployment guidance; exclude local planning and generated documentation.
+/docs/*
+!/docs/google-sheets-sync-deployment.md
+
+AGENTS.md

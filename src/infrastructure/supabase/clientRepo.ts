@@ -11,6 +11,25 @@ import { mapDbToClient } from './mappers';
 import { generateUUID } from '../../utils/uuid';
 
 export class SupabaseClientRepository implements IClientRepository {
+  private async getInteractionProducts(clientIds: string[]): Promise<Array<{ client_id: string; product_name: string }>> {
+    if (clientIds.length === 0) return [];
+
+    const pageSize = 500;
+    const products: Array<{ client_id: string; product_name: string }> = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase
+        .from('client_product_interactions')
+        .select('client_id, product_name')
+        .in('client_id', clientIds)
+        .order('interaction_id', { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw toSupabaseOperationError(error);
+      const page = data || [];
+      products.push(...page);
+      if (page.length < pageSize) return products;
+    }
+  }
+
   async getAll(): Promise<ClientProfile[]> {
     if (!isSupabaseConfigured) return [];
 
@@ -37,14 +56,7 @@ export class SupabaseClientRepository implements IClientRepository {
 
       const clients = (data || []).map(mapDbToClient);
       const clientIds = clients.map((client) => client.id);
-      const { data: interactions, error: interactionsError } = clientIds.length > 0
-        ? await supabase
-            .from('client_product_interactions')
-            .select('client_id, product_name')
-            .in('client_id', clientIds)
-        : { data: [], error: null };
-
-      if (interactionsError) throw toSupabaseOperationError(interactionsError);
+      const interactions = await this.getInteractionProducts(clientIds);
 
       const productsByClient = new Map<string, string[]>();
       for (const row of interactions || []) {
@@ -188,11 +200,7 @@ export class SupabaseClientRepository implements IClientRepository {
         ? (productsData as Array<{ product_name: string }>).map((p) => p.product_name).filter(Boolean)
         : [];
 
-      const { data: interactionProductsData, error: interactionProductsError } = await supabase
-        .from('client_product_interactions')
-        .select('product_name')
-        .eq('client_id', clientId);
-      if (interactionProductsError) throw toSupabaseOperationError(interactionProductsError);
+      const interactionProductsData = await this.getInteractionProducts([clientId]);
 
       const interactionProducts = Array.from(new Set(
         (interactionProductsData || [])

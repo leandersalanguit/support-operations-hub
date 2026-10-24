@@ -17,14 +17,14 @@ const databaseMocks = vi.hoisted(() => {
     single: vi.fn(),
     then: vi.fn(),
   };
-  return { query, from: vi.fn() };
+  return { query, from: vi.fn(), rpc: vi.fn() };
 });
 
 vi.mock('../client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../client')>();
   return {
     ...actual,
-    supabase: { from: databaseMocks.from },
+    supabase: { from: databaseMocks.from, rpc: databaseMocks.rpc },
     isSupabaseConfigured: true,
     withNetworkRetry: <T>(operation: () => Promise<T>) => operation(),
   };
@@ -68,6 +68,7 @@ describe('Supabase mutation zero-row access rechecks', () => {
       Promise.resolve({ data: [], error: null }).then(resolve, reject)
     );
     databaseMocks.from.mockReturnValue(databaseMocks.query);
+    databaseMocks.rpc.mockReturnValue(databaseMocks.query);
   });
 
   it('detects an interaction delete that affected no rows', async () => {
@@ -103,6 +104,25 @@ describe('Supabase mutation zero-row access rechecks', () => {
 
     expect(caught).toMatchObject({ code: 'PGRST116' });
     expect(isAccessDeniedError(caught)).toBe(true);
+  });
+
+  it.each([true, false])('sends retain-previous-product=%s to the atomic interaction edit RPC', async (retainPreviousProduct) => {
+    databaseMocks.query.single.mockResolvedValue({ data: {
+      id: interaction.id, created_at: interaction.createdAt, date: interaction.date, day_of_week: interaction.dayOfWeek,
+      agent: interaction.agent, agent_id: interaction.agentId, client_name: interaction.clientName,
+      channel: interaction.channel, channel_details: interaction.channelDetails, client_product: interaction.clientProduct,
+      case_classification: interaction.caseClassification, status: interaction.status, license: interaction.license,
+      in_event: interaction.inEvent, first_time_user: interaction.firstTimeUser, additional_notes: interaction.additionalNotes,
+    }, error: null });
+    const repository = new SupabaseInteractionRepository();
+
+    await repository.updateWithOwnershipChoice(interaction, retainPreviousProduct);
+
+    expect(databaseMocks.rpc).toHaveBeenCalledWith('update_interaction_with_ownership_choice', expect.objectContaining({
+      p_interaction_id: interaction.id,
+      p_retain_previous_product: retainPreviousProduct,
+      p_interaction: expect.objectContaining({ client_product: interaction.clientProduct }),
+    }));
   });
 
   it('detects a client delete that affected no rows', async () => {

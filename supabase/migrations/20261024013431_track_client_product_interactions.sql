@@ -129,6 +129,10 @@ FROM public.interactions AS interaction
 JOIN public.clients AS client
   ON lower(btrim(client.name)) = lower(btrim(public.canonical_interaction_client_name(interaction.client_name)))
 WHERE NULLIF(btrim(interaction.client_product), '') IS NOT NULL
+  AND 1 = (
+    SELECT count(*) FROM public.clients AS candidate
+    WHERE lower(btrim(candidate.name)) = lower(btrim(client.name))
+  )
 ON CONFLICT (interaction_id) DO NOTHING;
 
 CREATE OR REPLACE FUNCTION public.update_interaction_with_ownership_choice(

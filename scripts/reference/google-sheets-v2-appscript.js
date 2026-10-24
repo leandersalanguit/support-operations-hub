@@ -2,7 +2,8 @@
  * ==============================================================================
  * Foto Master Support Hub - Master Shift Summary Google Apps Script (v2.1)
  * ==============================================================================
- * Legacy reference only. Google Sheets is disabled for the support hub pilot.
+ * Reference endpoint for versioned master-sheet synchronization. Review the
+ * deployment configuration before enabling an Apps Script web app.
  *
  * Features:
  * - Automatic Monthly Tabs: Formatted like "AUG 2026", "SEP 2026".
@@ -12,35 +13,23 @@
  * - Full CRUD Support (Insert, Update, Delete with Sheet-to-Sheet transfers on date change).
  * - Unified Domain Licensing Support ('active_247', 'link_sent', 'cloud_without').
  *
- * Security: A future deployment must use a server-held 32-byte hexadecimal token.
- * Missing, placeholder, and invalid tokens are rejected before touching any sheet.
+ * Security: Set SECRET_TOKEN in Apps Script Script Properties to a randomly
+ * generated 32-byte hexadecimal token before deployment. Set
+ * MASTER_SPREADSHEET_ID to the workbook ID; this web app opens only that file.
  * ==============================================================================
  */
 
 // ==============================================================================
-// This placeholder makes the checked-in reference fail closed. Do not put a
-// private token in browser code or commit a deployed credential here.
+// The deployed secret is read from Script Properties at request time.
 // ==============================================================================
-const SECRET_TOKEN = 'REPLACE_WITH_YOUR_SECRET_TOKEN';
-const PLACEHOLDER_SECRET_TOKENS = [
-  'replace_with_your_secret_token',
-  'your-random-32-byte-hex-token',
-  'changeme',
-  'placeholder'
+const SYNC_STATE_TAB = '_SYNC_STATE';
+const MAX_REQUEST_CHARS = 65536;
+const ROOT_FIELDS = ['token', 'action', 'version', 'payload'];
+const PAYLOAD_FIELDS = [
+  'id', 'createdAt', 'date', 'dayOfWeek', 'time', 'agent', 'clientName',
+  'channel', 'channelDetails', 'clientProduct', 'caseClassification',
+  'status', 'license', 'inEvent', 'firstTimeUser', 'additionalNotes'
 ];
-
-function normalizeSecretToken(token) {
-  return String(token || '').trim().replace(/^['"]|['"]$/g, '');
-}
-
-function hasUsableSecretToken(token) {
-  const normalized = normalizeSecretToken(token);
-  return Boolean(
-    normalized &&
-    !PLACEHOLDER_SECRET_TOKENS.includes(normalized.toLowerCase()) &&
-    /^[a-f0-9]{64}$/i.test(normalized)
-  );
-}
 
 /** Makes untrusted strings literal when written into a spreadsheet cell. */
 function sanitizeSpreadsheetCell(value) {
@@ -125,14 +114,17 @@ function formatTimeLoggedPHT(timeStr, isoString) {
  * Unifies licensing representation into clean spreadsheet text.
  */
 function formatLicenseDisplay(item) {
-  if (item.license) {
-    if (item.license === 'active_247') return 'Yes';
-    if (item.license === 'link_sent') return 'Link Sent';
-    if (item.license === 'cloud_without') return 'Cloud Without';
-  }
-  if (item.valid247License === true) return 'Yes';
-  if (item.inactiveSupportOption) return item.inactiveSupportOption;
-  return item.valid247License === false ? 'Cloud Without' : 'Yes';
+  const labels = {
+    support_active: 'Yes',
+    renewal_sent: 'Renewal Sent',
+    support_inactive: 'Support Inactive',
+    active_247: 'Yes',
+    link_sent: 'Link Sent',
+    cloud_without: 'Cloud Without'
+  };
+  return Object.prototype.hasOwnProperty.call(labels, item.license)
+    ? labels[item.license]
+    : (item.license || 'Yes');
 }
 
 /**
@@ -142,8 +134,6 @@ function getOrCreateMonthSheet(ss, tabName) {
   let sheet = ss.getSheetByName(tabName);
   if (!sheet) {
     sheet = ss.insertSheet(tabName, 0);
-    ss.setActiveSheet(sheet);
-
     // Apply baseline styling
     sheet.getRange(1, 1, 1000, HEADERS.length)
       .setFontFamily("Arial")
@@ -241,101 +231,211 @@ function sortSheetByDate(sheet, ascending = true) {
   ]);
 }
 
-/**
- * POST handler retained for reference. Sheets is disabled during the pilot.
- * The checked-in placeholder is intentionally rejected before lock or sheet access.
- */
 function doPost(e) {
-  const incomingToken = normalizeSecretToken(e && e.parameter && e.parameter.token);
-  const configuredToken = normalizeSecretToken(SECRET_TOKEN);
-  if (!hasUsableSecretToken(configuredToken) || incomingToken !== configuredToken) {
-    return responseJSON({ success: false, error: 'Unauthorized.' });
+  let data;
+  try {
+    const contents = e && e.postData && e.postData.contents;
+    if (typeof contents !== 'string' || contents.length > MAX_REQUEST_CHARS) {
+      return responseJSON({ ok: false, error: 'invalid_request' });
+    }
+    data = JSON.parse(contents);
+  } catch (_err) {
+    return responseJSON({ ok: false, error: 'invalid_request' });
   }
 
-  const lock = LockService.getScriptLock();
-  lock.tryLock(10000);
+  let configuredToken;
+  let spreadsheetId;
+  try {
+    const properties = PropertiesService.getScriptProperties();
+    configuredToken = properties.getProperty('SECRET_TOKEN');
+    spreadsheetId = properties.getProperty('MASTER_SPREADSHEET_ID');
+  } catch (_err) {
+    return responseJSON({ ok: false, error: 'unauthorized' });
+  }
+  if (!hasUsableSecretToken(configuredToken) || !data || typeof data.token !== 'string' || data.token !== configuredToken) {
+    return responseJSON({ ok: false, error: 'unauthorized' });
+  }
+  if (!isValidSpreadsheetId(spreadsheetId)) return responseJSON({ ok: false, error: 'server_error' });
+
+  const request = validateRequestObject(data);
+  if (!request) return responseJSON({ ok: false, error: 'invalid_request' });
+
+  let lock;
+  let acquired = false;
+  try {
+    lock = LockService.getScriptLock();
+    acquired = lock.tryLock(10000);
+  } catch (_err) {
+    return responseJSON({ ok: false, error: 'lock_unavailable' });
+  }
+  if (!acquired) return responseJSON({ ok: false, error: 'lock_unavailable' });
 
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const data = JSON.parse(e.postData.contents);
-    const action = data.action;
-    const item = data.payload;
+    const ss = SpreadsheetApp.openById(spreadsheetId);
+    if (!ss) return responseJSON({ ok: false, error: 'server_error' });
+    const item = request.payload;
+    const stateSheet = getOrCreateSyncStateSheet(ss);
+    const state = getSyncState(stateSheet, item.id);
+    if (state && request.version <= state.version) return responseJSON(successAck(request, true));
 
-    // --- 1. INSERT ---
-    if (action === 'insert') {
-      const tabName = getTabNameFromDate(item.date);
-      const sheet = getOrCreateMonthSheet(ss, tabName);
-      sheet.appendRow(formatInteractionRow(item));
-
-      const lastRow = sheet.getLastRow();
-      sheet.getRange(lastRow, 1, 1, HEADERS.length).setVerticalAlignment("middle");
-      sortSheetByDate(sheet, true);
-
-      return responseJSON({ success: true, message: `Inserted and sorted ${tabName}` });
-    }
-
-    // --- 2. UPDATE ---
-    if (action === 'update') {
-      const targetTabName = getTabNameFromDate(item.date);
-      const sheets = ss.getSheets();
-      let found = false;
-
-      for (const sheet of sheets) {
-        const rows = sheet.getDataRange().getValues();
-        for (let i = 1; i < rows.length; i++) {
-          if (rows[i][0] === item.id) {
-            if (sheet.getName() === targetTabName) {
-              // Same month -- update in place
-              const range = sheet.getRange(i + 1, 1, 1, HEADERS.length);
-              range.setValues([formatInteractionRow(item)]);
-              range.setVerticalAlignment("middle");
-              sortSheetByDate(sheet, true);
-            } else {
-              // Date changed to a different month -- move the row
-              sheet.deleteRow(i + 1);
-              const newSheet = getOrCreateMonthSheet(ss, targetTabName);
-              newSheet.appendRow(formatInteractionRow(item));
-              newSheet.getRange(newSheet.getLastRow(), 1, 1, HEADERS.length).setVerticalAlignment("middle");
-              sortSheetByDate(newSheet, true);
-            }
-            found = true;
-            break;
-          }
-        }
-        if (found) break;
+    const matches = findMonthlyRows(ss, item.id);
+    if (request.action === 'delete') {
+      deleteMonthlyMatches(matches);
+      SpreadsheetApp.flush();
+      saveSyncState(stateSheet, item.id, request.version, true);
+      SpreadsheetApp.flush();
+    } else {
+      const targetSheet = getOrCreateMonthSheet(ss, getTabNameFromDate(item.date));
+      const targetMatch = matches.find((match) => match.sheet === targetSheet);
+      const row = formatInteractionRow(item);
+      let targetRow;
+      if (targetMatch) {
+        targetRow = targetMatch.rowIndex;
+        targetSheet.getRange(targetRow, 1, 1, HEADERS.length).setValues([row]).setVerticalAlignment('middle');
+      } else {
+        targetSheet.appendRow(row);
+        targetRow = targetSheet.getLastRow();
+        targetSheet.getRange(targetRow, 1, 1, HEADERS.length).setVerticalAlignment('middle');
       }
-
-      if (!found) {
-        // ID not found anywhere -- insert as new row
-        const sheet = getOrCreateMonthSheet(ss, targetTabName);
-        sheet.appendRow(formatInteractionRow(item));
-        sheet.getRange(sheet.getLastRow(), 1, 1, HEADERS.length).setVerticalAlignment("middle");
-        sortSheetByDate(sheet, true);
-      }
-      return responseJSON({ success: true, message: 'Updated and sorted' });
+      deleteMonthlyMatches(matches.filter((match) => match.sheet !== targetSheet || match.rowIndex !== targetRow));
+      sortSheetByDate(targetSheet, true);
+      SpreadsheetApp.flush();
+      saveSyncState(stateSheet, item.id, request.version, false);
+      SpreadsheetApp.flush();
     }
-
-    // --- 3. DELETE ---
-    if (action === 'delete') {
-      const sheets = ss.getSheets();
-      for (const sheet of sheets) {
-        const rows = sheet.getDataRange().getValues();
-        for (let i = 1; i < rows.length; i++) {
-          if (rows[i][0] === item.id) {
-            sheet.deleteRow(i + 1);
-            return responseJSON({ success: true, message: `Deleted from ${sheet.getName()}` });
-          }
-        }
-      }
-      return responseJSON({ success: false, message: 'ID not found for delete' });
-    }
-
-    return responseJSON({ success: false, message: 'Unknown action' });
-  } catch (err) {
-    return responseJSON({ success: false, error: err.toString() });
+    return responseJSON(successAck(request, false));
+  } catch (_err) {
+    // Do not expose spreadsheet, request, token, or PII details to callers/logs.
+    return responseJSON({ ok: false, error: 'server_error' });
   } finally {
-    lock.releaseLock();
+    if (acquired) {
+      try { lock.releaseLock(); } catch (_err) { /* Keep the response generic. */ }
+    }
   }
+}
+
+function validateRequestObject(data) {
+  if (!isPlainObject(data) || !hasExactFields(data, ROOT_FIELDS)) return null;
+  if (data.action !== 'insert' && data.action !== 'update' && data.action !== 'delete') return null;
+  if (!Number.isSafeInteger(data.version) || data.version < 1) return null;
+
+  const item = data.payload;
+  if (!isPlainObject(item) || !hasExactFields(item, PAYLOAD_FIELDS)) return null;
+  if (typeof item.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(item.id)) return null;
+  if (typeof item.createdAt !== 'string' || item.createdAt.length > 40 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(item.createdAt) || !isValidDateTime(item.createdAt)) return null;
+  if (!isValidCalendarDate(item.date)) return null;
+  if (typeof item.inEvent !== 'boolean' || typeof item.firstTimeUser !== 'boolean') return null;
+
+  const limits = {
+    dayOfWeek: 20, time: 16, agent: 160, clientName: 240, channel: 40,
+    channelDetails: 1000, clientProduct: 160, caseClassification: 160,
+    status: 80, license: 80, additionalNotes: 10000
+  };
+  for (const field in limits) {
+    if (typeof item[field] !== 'string' || item[field].length > limits[field]) return null;
+  }
+  if (!isValidTime(item.time)) return null;
+  return { action: data.action, version: data.version, payload: item };
+}
+
+function isValidTime(value) {
+  if (!/^\d{2}:\d{2}(?::\d{2})?$/.test(value)) return false;
+  const parts = value.split(':').map(Number);
+  return parts[0] <= 23 && parts[1] <= 59 && (parts.length === 2 || parts[2] <= 59);
+}
+
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function hasExactFields(value, fields) {
+  const actual = Object.keys(value).sort();
+  const expected = fields.slice().sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+function isValidCalendarDate(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parts = value.split('-').map(Number);
+  const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  return date.getUTCFullYear() === parts[0] && date.getUTCMonth() === parts[1] - 1 && date.getUTCDate() === parts[2];
+}
+
+function isValidDateTime(value) {
+  return isValidCalendarDate(value.slice(0, 10)) && !isNaN(new Date(value).getTime());
+}
+
+function hasUsableSecretToken(value) {
+  return typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value);
+}
+
+function isValidSpreadsheetId(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{20,128}$/.test(value);
+}
+
+function successAck(request, ignored) {
+  return { ok: true, id: request.payload.id, version: request.version, action: request.action, ignored: ignored };
+}
+
+function getOrCreateSyncStateSheet(ss) {
+  let sheet = ss.getSheetByName(SYNC_STATE_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(SYNC_STATE_TAB);
+    sheet.appendRow(['ID', 'VERSION', 'DELETED']);
+    if (sheet.hideSheet) sheet.hideSheet();
+  }
+  return sheet;
+}
+
+function getSyncState(sheet, id) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const rows = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  for (let index = 0; index < rows.length; index++) {
+    if (rows[index][0] === id) return { version: Number(rows[index][1]), deleted: rows[index][2] === true };
+  }
+  return null;
+}
+
+function saveSyncState(sheet, id, version, deleted) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    const rows = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+    for (let index = 0; index < rows.length; index++) {
+      if (rows[index][0] === id) {
+        sheet.getRange(index + 2, 1, 1, 3).setValues([[id, version, deleted]]);
+        return;
+      }
+    }
+  }
+  sheet.appendRow([id, version, deleted]);
+}
+
+function findMonthlyRows(ss, id) {
+  const found = [];
+  ss.getSheets().forEach((sheet) => {
+    if (!/^[A-Z]{3} \d{4}$/.test(sheet.getName())) return;
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return;
+    const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+    rows.forEach((row, index) => {
+      if (row[0] === id) found.push({ sheet: sheet, rowIndex: index + 2 });
+    });
+  });
+  return found;
+}
+
+function deleteMonthlyMatches(matches) {
+  const bySheet = new Map();
+  matches.forEach((match) => {
+    const key = match.sheet.getName();
+    if (!bySheet.has(key)) bySheet.set(key, []);
+    bySheet.get(key).push(match);
+  });
+  bySheet.forEach((sheetMatches) => {
+    sheetMatches.sort((left, right) => right.rowIndex - left.rowIndex);
+    sheetMatches.forEach((match) => match.sheet.deleteRow(match.rowIndex));
+  });
 }
 
 function responseJSON(obj) {
