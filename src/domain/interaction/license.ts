@@ -16,13 +16,50 @@ export type SupportLicense =
  */
 export function isLicenseActive(license: SupportLicense): boolean {
   const l = (license || '').toLowerCase();
-  return l === 'support_active' || l.includes('active') || l === 'yes';
+  return l === 'support_active' || l === 'yes';
 }
 
 export interface SupportTierLike {
   code: string;
   label?: string;
   exportLabel?: string;
+  isDefault?: boolean;
+}
+
+/** Determines active status from configured export metadata, with a legacy fallback. */
+export function isSupportTierActive(tier: SupportTierLike): boolean {
+  const exportLabel = (tier.exportLabel || '').trim().toLowerCase();
+  return exportLabel ? exportLabel === 'yes' : tier.code === 'support_active';
+}
+
+/** Uses configured tier metadata when available and the legacy license rule otherwise. */
+export function isSupportLicenseActive(
+  license: SupportLicense,
+  supportTiers?: SupportTierLike[]
+): boolean {
+  const matchedTier = supportTiers?.find((tier) => tier.code === license);
+  return matchedTier ? isSupportTierActive(matchedTier) : isLicenseActive(license);
+}
+
+/** Selects a default tier without treating the default flag as active status. */
+export function getDefaultSupportLicense(supportTiers?: SupportTierLike[]): SupportLicense {
+  return supportTiers?.find((tier) => tier.isDefault)?.code
+    || supportTiers?.find(isSupportTierActive)?.code
+    || 'support_active';
+}
+
+/** Applies a newly loaded default only when the current value is still an untouched fallback. */
+export function resolveSupportLicenseSelection(
+  currentLicense: SupportLicense | null | undefined,
+  supportTiers: SupportTierLike[],
+  options: { userSelected?: boolean; storedLicense?: SupportLicense | null } = {}
+): SupportLicense {
+  const current = currentLicense || 'support_active';
+  if (options.userSelected || options.storedLicense || supportTiers.length === 0) return current;
+
+  const tierExists = supportTiers.some((tier) => tier.code === current);
+  if (current === 'support_active' || !tierExists) return getDefaultSupportLicense(supportTiers);
+  return current;
 }
 
 /**

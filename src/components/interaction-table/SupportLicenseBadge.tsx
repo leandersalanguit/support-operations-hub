@@ -6,8 +6,7 @@
 
 import React from 'react';
 import { SupportTier } from '../../infrastructure/supabase/configRepo';
-import { isLicenseActive } from '../../domain/interaction/license';
-import { isTierActive } from '../common/LicenseSelector';
+import { isSupportLicenseActive } from '../../domain/interaction/license';
 
 export interface SupportLicenseBadgeProps {
   license?: string;
@@ -19,7 +18,7 @@ export const SupportLicenseBadge: React.FC<SupportLicenseBadgeProps> = React.mem
   supportTiers,
 }) => {
   const matchedTier = supportTiers?.find((t) => t.code === license);
-  const isAct = isLicenseActive(license || '') || (matchedTier ? isTierActive(matchedTier) : false);
+  const isAct = isSupportLicenseActive(license || '', supportTiers);
   const isRen = !isAct && (
     license === 'renewal_sent' ||
     /renewal|link|send|sent/i.test(`${license || ''} ${matchedTier?.label || ''}`)
