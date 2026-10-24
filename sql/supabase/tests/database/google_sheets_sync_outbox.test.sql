@@ -7,20 +7,23 @@ VALUES
   ('00000000-0000-0000-0000-000000000000', '35000000-0000-4000-8000-000000000001',
    'authenticated', 'authenticated', 'sheets-agent@example.test', '', now(), '{}', '{}', now(), now()),
   ('00000000-0000-0000-0000-000000000000', '35000000-0000-4000-8000-000000000002',
-   'authenticated', 'authenticated', 'sheets-lead@example.test', '', now(), '{}', '{}', now(), now())
+   'authenticated', 'authenticated', 'sheets-lead@example.test', '', now(), '{}', '{}', now(), now()),
+  ('00000000-0000-0000-0000-000000000000', '35000000-0000-4000-8000-000000000003',
+   'authenticated', 'authenticated', 'sheets-agent-two@example.test', '', now(), '{}', '{}', now(), now())
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO private.staff_access(user_id, role, active, password_change_required)
 VALUES
   ('35000000-0000-4000-8000-000000000001', 'support_agent', true, false),
-  ('35000000-0000-4000-8000-000000000002', 'team_lead', true, false)
+  ('35000000-0000-4000-8000-000000000002', 'team_lead', true, false),
+  ('35000000-0000-4000-8000-000000000003', 'support_agent', true, false)
 ON CONFLICT (user_id) DO UPDATE
 SET role = EXCLUDED.role, active = true, password_change_required = false;
 
 SELECT ok(NOT has_table_privilege('authenticated', 'private.google_sheets_sync_outbox', 'SELECT'),
   'authenticated staff cannot read the outbox');
-SELECT ok(NOT has_function_privilege('authenticated', 'private.claim_google_sheets_sync_events(integer)', 'EXECUTE'),
+SELECT ok(NOT has_function_privilege('authenticated', 'public.claim_google_sheets_sync_events(integer)', 'EXECUTE'),
   'authenticated staff cannot claim outbox events');
-SELECT ok(NOT has_function_privilege('anon', 'private.claim_google_sheets_sync_events(integer)', 'EXECUTE'),
+SELECT ok(NOT has_function_privilege('anon', 'public.claim_google_sheets_sync_events(integer)', 'EXECUTE'),
   'anonymous callers cannot claim outbox events');
 SELECT ok(has_function_privilege('service_role', 'public.claim_google_sheets_sync_events(integer)', 'EXECUTE'),
   'only the service worker can claim queued events');
@@ -54,15 +57,16 @@ SET LOCAL ROLE authenticated;
 UPDATE public.interactions SET additional_notes = 'Changed notes'
 WHERE id = '35000000-0000-4000-8000-000000000011';
 RESET ROLE;
-SELECT is((SELECT version FROM private.google_sheets_sync_outbox ORDER BY id DESC LIMIT 1), 2::bigint,
+SELECT is((SELECT version FROM private.google_sheets_sync_outbox ORDER BY event_id DESC LIMIT 1), 2::bigint,
   'an update increments the interaction version');
-SELECT is((SELECT payload->>'additionalNotes' FROM private.google_sheets_sync_outbox ORDER BY id DESC LIMIT 1), 'Changed notes',
+SELECT is((SELECT payload->>'additionalNotes' FROM private.google_sheets_sync_outbox ORDER BY event_id DESC LIMIT 1), 'Changed notes',
   'an update stores its committed snapshot');
 
-SELECT set_config('request.jwt.claim.sub', '35000000-0000-4000-8000-000000000002', true);
+SELECT set_config('request.jwt.claim.sub', '35000000-0000-4000-8000-000000000003', true);
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT pending_count FROM public.get_google_sheets_sync_status()), 0,
   'another agent cannot see this actor pending event count');
+SELECT set_config('request.jwt.claim.sub', '35000000-0000-4000-8000-000000000002', true);
 SELECT is((SELECT pending_count FROM public.get_google_sheets_sync_status()), 2,
   'a Team Lead can see global pending event counts');
 
@@ -71,11 +75,11 @@ SELECT set_config('request.jwt.claim.sub', '35000000-0000-4000-8000-000000000001
 SET LOCAL ROLE authenticated;
 DELETE FROM public.interactions WHERE id = '35000000-0000-4000-8000-000000000011';
 RESET ROLE;
-SELECT is((SELECT action FROM private.google_sheets_sync_outbox ORDER BY id DESC LIMIT 1), 'delete',
+SELECT is((SELECT action FROM private.google_sheets_sync_outbox ORDER BY event_id DESC LIMIT 1), 'delete',
   'an interaction delete creates a delete event');
-SELECT is((SELECT version FROM private.google_sheets_sync_outbox ORDER BY id DESC LIMIT 1), 3::bigint,
+SELECT is((SELECT version FROM private.google_sheets_sync_outbox ORDER BY event_id DESC LIMIT 1), 3::bigint,
   'a delete advances the interaction version');
-SELECT is((SELECT payload->>'clientName' FROM private.google_sheets_sync_outbox ORDER BY id DESC LIMIT 1), 'Sheets Test Client',
+SELECT is((SELECT payload->>'clientName' FROM private.google_sheets_sync_outbox ORDER BY event_id DESC LIMIT 1), 'Sheets Test Client',
   'a delete keeps the old approved snapshot for removal');
 
 CREATE TEMP TABLE first_claims ON COMMIT DROP AS
