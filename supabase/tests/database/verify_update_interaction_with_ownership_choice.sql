@@ -1,6 +1,6 @@
--- Regression test for typed JSON assignments and interaction ownership choices.
+-- Regression test for typed JSON assignments and ownership allowlists.
 BEGIN;
-SELECT plan(6);
+SELECT plan(10);
 
 CREATE TEMP TABLE ownership_rpc_fixture (
   interaction_id uuid NOT NULL,
@@ -41,21 +41,23 @@ SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SET LOCAL ROLE authenticated;
 
 INSERT INTO public.interactions
-  (id, date, day_of_week, agent, agent_id, client_name, channel, client_product,
+  (id, date, day_of_week, agent, agent_id, client_id, client_name, channel, client_product,
    case_classification, status)
 SELECT fixture.interaction_id, current_date, 'Monday', 'Ownership RPC Regression',
-  '33000000-0000-4000-8000-000000000001',
+  '33000000-0000-4000-8000-000000000001', fixture.client_id,
   'Codex RPC Client 33000000-0000-4000-8000-000000000011',
   'Call', fixture.old_product, 'General', 'Open'
 FROM ownership_rpc_fixture AS fixture;
-
 
 SELECT public.update_interaction_with_ownership_choice(
   fixture.interaction_id,
   (SELECT to_jsonb(interaction) || jsonb_build_object(
      'date', '2026-10-24',
      'time', '14:30:17',
-     'client_product', fixture.retained_product
+     'client_product', fixture.retained_product,
+     'id', '33000000-0000-4000-8000-000000000099',
+     'agent_id', NULL,
+     'client_id', NULL
    )
    FROM public.interactions AS interaction
    WHERE interaction.id = fixture.interaction_id),
@@ -74,6 +76,30 @@ SELECT is(
    WHERE id = '33000000-0000-4000-8000-000000000011'),
   TIME '14:30:17',
   'typed time assignment round-trips'
+);
+SELECT is(
+  (SELECT channel::text FROM public.interactions
+   WHERE id = '33000000-0000-4000-8000-000000000011'),
+  'Call',
+  'channel value decodes through the interactions row type'
+);
+SELECT is(
+  (SELECT id FROM public.interactions
+   WHERE id = '33000000-0000-4000-8000-000000000011'),
+  '33000000-0000-4000-8000-000000000011'::uuid,
+  'payload cannot change the interaction id'
+);
+SELECT is(
+  (SELECT agent_id FROM public.interactions
+   WHERE id = '33000000-0000-4000-8000-000000000011'),
+  '33000000-0000-4000-8000-000000000001'::uuid,
+  'payload cannot change the interaction agent'
+);
+SELECT is(
+  (SELECT interaction.client_id FROM public.interactions AS interaction
+   WHERE interaction.id = '33000000-0000-4000-8000-000000000011'),
+  (SELECT fixture.client_id FROM ownership_rpc_fixture AS fixture),
+  'payload cannot change the linked client id'
 );
 SELECT ok(
   EXISTS (
