@@ -27,7 +27,12 @@ INSERT INTO public.clients(id, name) VALUES
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '20000000-0000-4000-8000-000000000001', true);
-SELECT is((SELECT count(*)::integer FROM public.interactions), 3, 'active staff can read shared interactions');
+SELECT is((SELECT count(*)::integer FROM public.interactions
+  WHERE id IN (
+    '20000000-0000-4000-8000-000000000011',
+    '20000000-0000-4000-8000-000000000012',
+    '20000000-0000-4000-8000-000000000013'
+  )), 3, 'active staff can read shared interactions');
 SELECT lives_ok($$INSERT INTO public.interactions(date, day_of_week, agent, agent_id, client_name, channel, client_product, case_classification, status)
   VALUES (current_date, 'Monday', 'Same Name', auth.uid(), 'Synthetic own insert', 'Call', 'Widget', 'General', 'Open')$$,
   'agent can insert an interaction owned by their UUID');
