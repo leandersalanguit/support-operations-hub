@@ -154,11 +154,13 @@ describe('useAuthWorkflow server access state and auth transitions', () => {
     await act(async () => {
       authMocks.authStateCallback?.('SIGNED_IN', { user: makeUser('user-b') });
     });
+    expect(latest.authLoading).toBe(true);
     await act(async () => {
       resolveB(activeState('user-b'));
       await Promise.resolve();
       await Promise.resolve();
     });
+    expect(latest.authLoading).toBe(false);
     await act(async () => {
       resolveA({ ...activeState('user-a'), active: false });
       await Promise.resolve();
@@ -168,6 +170,100 @@ describe('useAuthWorkflow server access state and auth transitions', () => {
     expect(latest.currentUser?.id).toBe('user-b');
     expect(latest.staffAccessState?.userId).toBe('user-b');
     expect(latest.isPasswordChangeRequired).toBe(false);
+  });
+
+  it('transfers loader ownership to the latest check and protects a newer account transition', async () => {
+    await act(async () => {
+      renderer = create(<Harness />);
+      await Promise.resolve();
+    });
+
+    authMocks.getMyAccessState.mockResolvedValue(activeState('user-a'));
+    await act(async () => {
+      authMocks.authStateCallback?.('SIGNED_IN', { user: makeUser('user-a') });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(latest.authLoading).toBe(false);
+
+    let resolveObsolete!: (state: ReturnType<typeof activeState>) => void;
+    let resolveBackground!: (state: ReturnType<typeof activeState>) => void;
+    let resolveReplacement!: (state: ReturnType<typeof activeState>) => void;
+    authMocks.getMyAccessState
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveObsolete = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveBackground = resolve; }))
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveReplacement = resolve; }));
+
+    await act(async () => {
+      void latest.refreshAccessState('user-a');
+    });
+    expect(latest.authLoading).toBe(true);
+
+    await act(async () => {
+      authMocks.authStateCallback?.('TOKEN_REFRESHED', { user: makeUser('user-a') });
+    });
+    expect(latest.authLoading).toBe(true);
+
+    await act(async () => {
+      resolveBackground(activeState('user-a'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(latest.authLoading).toBe(false);
+
+    await act(async () => {
+      authMocks.authStateCallback?.('SIGNED_IN', { user: makeUser('user-b') });
+    });
+    expect(latest.authLoading).toBe(true);
+
+    await act(async () => {
+      resolveObsolete(activeState('user-a'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(latest.authLoading).toBe(true);
+
+    await act(async () => {
+      resolveReplacement(activeState('user-b'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(latest.authLoading).toBe(false);
+    expect(latest.isPasswordChangeRequired).toBe(false);
+  });
+
+  it.each(['SIGNED_IN', 'TOKEN_REFRESHED'])('keeps the app mounted for a same-user %s event while access is rechecked', async (event) => {
+    await act(async () => {
+      renderer = create(<Harness />);
+      await Promise.resolve();
+    });
+
+    authMocks.getMyAccessState.mockResolvedValue(activeState('user-a'));
+    await act(async () => {
+      authMocks.authStateCallback?.('SIGNED_IN', { user: makeUser('user-a') });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(latest.authLoading).toBe(false);
+
+    const accessChecksBeforeRefresh = authMocks.getMyAccessState.mock.calls.length;
+    let resolveAccessState!: (state: ReturnType<typeof activeState>) => void;
+    authMocks.getMyAccessState.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveAccessState = resolve;
+    }));
+    await act(async () => {
+      authMocks.authStateCallback?.(event, { user: makeUser('user-a') });
+    });
+
+    expect(latest.authLoading).toBe(false);
+    expect(authMocks.getMyAccessState).toHaveBeenCalledTimes(accessChecksBeforeRefresh + 1);
+
+    await act(async () => {
+      resolveAccessState(activeState('user-a'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(latest.authLoading).toBe(false);
   });
 });
 

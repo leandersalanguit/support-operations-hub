@@ -97,18 +97,35 @@ export function useAuthWorkflow() {
   const staffAccessRef = useRef<StaffAccessState | null>(staffAccessState);
   staffAccessRef.current = staffAccessState;
   const accessRequestId = useRef(0);
+  const blockingAccessRequestId = useRef<number | null>(null);
   const lastAuthUserId = useRef<string | null>(currentUser?.id || null);
 
-  const refreshAccessState = useCallback(async (userId?: string) => {
+  const refreshAccessState = useCallback(async (
+    userId?: string,
+    options: { showLoading?: boolean } = {}
+  ) => {
+    const showLoading = (options.showLoading ?? true) || blockingAccessRequestId.current !== null;
     const requestId = ++accessRequestId.current;
-    setAuthLoading(true);
+    const finishLoading = () => {
+      if (blockingAccessRequestId.current === requestId) {
+        blockingAccessRequestId.current = null;
+        setAuthLoading(false);
+      }
+    };
+    if (showLoading) {
+      blockingAccessRequestId.current = requestId;
+      setAuthLoading(true);
+    }
     try {
       const state = await getMyAccessState();
-      if (requestId !== accessRequestId.current) return state;
+      if (requestId !== accessRequestId.current) {
+        finishLoading();
+        return state;
+      }
       if (userId && state?.userId !== userId) {
         setStaffAccessState(null);
         setIsPasswordChangeRequired(true);
-        setAuthLoading(false);
+        finishLoading();
         return null;
       }
       setStaffAccessState(state);
@@ -118,14 +135,14 @@ export function useAuthWorkflow() {
         if (staffAccessRef.current?.active) notifyStaffAccessInvalidated();
         else notifyCustomerSessionCleared();
       }
-      setAuthLoading(false);
+      finishLoading();
       return state;
     } catch (error) {
       if (requestId === accessRequestId.current) {
         setStaffAccessState(null);
         setIsPasswordChangeRequired(true);
-        setAuthLoading(false);
       }
+      finishLoading();
       throw error;
     }
   }, []);
@@ -242,17 +259,24 @@ export function useAuthWorkflow() {
         if (isMounted) setAuthLoading(false);
       });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
 
       if (session?.user) {
+        const isSameUser = lastAuthUserId.current === session.user.id;
         if (hasAuthenticatedUserChanged(lastAuthUserId.current, session.user.id)) {
           clearCustomerSession();
           notifyCustomerSessionCleared();
         }
         lastAuthUserId.current = session.user.id;
         setCurrentUser(session.user);
-        refreshAccessState(session.user.id).catch((err) => {
+        // Recheck staff access without replacing the shell on same-user refocus events.
+        // If a blocking check is active, the new check takes ownership of its loader.
+        const isRepeatSignInOrTokenRefresh = isSameUser &&
+          (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED');
+        refreshAccessState(session.user.id, {
+          showLoading: !isRepeatSignInOrTokenRefresh,
+        }).catch((err) => {
           console.error('Staff access state load error:', err);
         });
       } else if (!isDemoMode) {
