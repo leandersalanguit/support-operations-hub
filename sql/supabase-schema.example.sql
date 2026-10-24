@@ -8,9 +8,9 @@
 -- policies from older copies of this template.
 --
 -- For a clean local database, install the Supabase CLI and Docker, then run:
---   supabase start
---   supabase db reset
---   supabase test db
+--   npm run db:start
+--   npm run db:reset
+--   npm run test:db
 --
 -- For a linked project, review and back up the actual schema before applying
 -- migrations. This local example is not evidence of the production schema and

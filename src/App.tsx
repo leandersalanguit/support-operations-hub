@@ -34,6 +34,7 @@ import { AuthModal } from './components/AuthModal';
 import { DemoBanner } from './components/DemoBanner';
 import { useTheme } from './utils/theme';
 import { useSmoothScrollToElement } from './utils/scroll';
+import { useGoogleSheetsSyncStatus } from './application/useGoogleSheetsSyncStatus';
 
 const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ auth }) => {
   // ---------------------------------------------------------------------------
@@ -61,6 +62,10 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     switchDemoPersona,
     exitDemoMode,
   } = auth;
+  const sheetsSync = useGoogleSheetsSyncStatus({
+    userId: currentUser?.id ?? null,
+    isDemo: isDemoMode,
+  });
 
   // ---------------------------------------------------------------------------
   // 3. TAXONOMIES & DYNAMIC CATALOGS
@@ -94,6 +99,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
     resetSampleData,
     clearAllInteractions,
     sync,
+      clientSyncErrorMessage,
   } = useInteractionWorkflow({
     currentUser,
     currentAgentName,
@@ -141,7 +147,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
   }, [activeTab, userRole]);
 
   // Surface sync errors into error banner if any
-  const effectiveError = errorMessage || sync.syncErrorMessage;
+  const effectiveError = errorMessage || clientSyncErrorMessage || sync.syncErrorMessage;
 
   // ---------------------------------------------------------------------------
   // 7. SMOOTH SCROLL ANIMATION FOR FORM SUBMISSION
@@ -279,6 +285,14 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
           syncStatus={sync.syncStatus}
           pendingSyncCount={sync.pendingSyncCount}
           onRetrySync={sync.drainQueue}
+          sheetsSync={{
+            state: sheetsSync.state,
+            pendingCount: sheetsSync.pendingCount,
+            failedCount: sheetsSync.failedCount,
+            retrying: sheetsSync.retrying,
+            errorMessage: sheetsSync.errorMessage,
+            onRetryFailed: sheetsSync.retryFailed,
+          }}
           theme={theme}
           onToggleTheme={toggleTheme}
           onResetSampleData={resetSampleData}
@@ -349,6 +363,7 @@ const AppContent: React.FC<{ auth: ReturnType<typeof useAuthWorkflow> }> = ({ au
                   userRole={userRole}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
+                  sheetsShortcutUrl={sheetsSync.shortcutUrl}
                 />
               </div>
             </>

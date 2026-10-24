@@ -70,6 +70,24 @@ export class SupabaseInteractionRepository implements IInteractionRepository {
     });
   }
 
+  async updateWithOwnershipChoice(interaction: SupportInteraction, retainPreviousProduct: boolean): Promise<SupportInteraction> {
+    if (!isSupabaseConfigured) return interaction;
+
+    return await withNetworkRetry(async () => {
+      const { data, error } = await supabase.rpc('update_interaction_with_ownership_choice', {
+        p_interaction_id: interaction.id,
+        p_interaction: mapInteractionToDb(interaction),
+        p_retain_previous_product: retainPreviousProduct,
+      }).single();
+
+      if (error) {
+        console.error('Supabase update interaction ownership error:', error);
+        throw toSupabaseOperationError(error);
+      }
+      return mapDbToInteraction(data as DbInteraction);
+    });
+  }
+
   async delete(id: string): Promise<void> {
     if (!isSupabaseConfigured) return;
 

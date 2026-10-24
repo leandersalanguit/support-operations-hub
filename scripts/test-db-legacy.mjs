@@ -34,10 +34,10 @@ process.on('exit', () => {
 });
 const steps = [
   { kind: 'cli', args: ['--workdir', resetRoot, 'db', 'reset', '--local', '--yes', '--no-seed'] },
-  { kind: 'sql', file: 'supabase/tests/fixtures/legacy_example.sql' },
+  { kind: 'sql', file: 'sql/supabase/tests/fixtures/legacy_example.sql' },
   { kind: 'cli', args: ['db', 'push', '--local', '--yes'] },
-  { kind: 'sql', file: 'supabase/tests/fixtures/legacy-upgrade-assertions.sql' },
-  { kind: 'cli', args: ['test', 'db', '--local', 'supabase/tests/database'] },
+  { kind: 'sql', file: 'sql/supabase/tests/fixtures/legacy-upgrade-assertions.sql' },
+  { kind: 'cli', args: ['test', 'db', '--local', 'sql/supabase/tests/database'] },
 ];
 for (const step of steps) {
   let result;

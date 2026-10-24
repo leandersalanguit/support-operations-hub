@@ -11,6 +11,25 @@ import { mapDbToClient } from './mappers';
 import { generateUUID } from '../../utils/uuid';
 
 export class SupabaseClientRepository implements IClientRepository {
+  private async getInteractionProducts(clientIds: string[]): Promise<Array<{ client_id: string; product_name: string }>> {
+    if (clientIds.length === 0) return [];
+
+    const pageSize = 500;
+    const products: Array<{ client_id: string; product_name: string }> = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await supabase
+        .from('client_product_interactions')
+        .select('client_id, product_name')
+        .in('client_id', clientIds)
+        .order('interaction_id', { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw toSupabaseOperationError(error);
+      const page = data || [];
+      products.push(...page);
+      if (page.length < pageSize) return products;
+    }
+  }
+
   async getAll(): Promise<ClientProfile[]> {
     if (!isSupabaseConfigured) return [];
 
@@ -35,7 +54,27 @@ export class SupabaseClientRepository implements IClientRepository {
         throw toSupabaseOperationError(error);
       }
 
-      return (data || []).map(mapDbToClient);
+      const clients = (data || []).map(mapDbToClient);
+      const clientIds = clients.map((client) => client.id);
+      const interactions = await this.getInteractionProducts(clientIds);
+
+      const productsByClient = new Map<string, string[]>();
+      for (const row of interactions || []) {
+        const products = productsByClient.get(row.client_id) || [];
+        products.push(row.product_name);
+        productsByClient.set(row.client_id, products);
+      }
+
+      return clients.map((client) => {
+        const interactionProducts = Array.from(new Set(productsByClient.get(client.id) || []));
+        const manuallyOwnedProducts = client.manuallyOwnedProducts || client.ownedProducts;
+        return {
+          ...client,
+          manuallyOwnedProducts,
+          interactionProducts,
+          ownedProducts: Array.from(new Set([...manuallyOwnedProducts, ...interactionProducts])),
+        };
+      });
     });
   }
 
@@ -64,6 +103,8 @@ export class SupabaseClientRepository implements IClientRepository {
         phoneNumber: trimmedPhone,
         phoneNumbers: fallbackNumbers,
         ownedProducts: trimmedProduct ? [trimmedProduct] : [],
+        manuallyOwnedProducts: [],
+        interactionProducts: trimmedProduct ? [trimmedProduct] : [],
         createdAt: now,
         updatedAt: now,
         lastLoggedBy: agent,
@@ -148,30 +189,25 @@ export class SupabaseClientRepository implements IClientRepository {
         clientCreatedAt = newClient.created_at;
       }
 
-      // 2. Associate product in client_products
-      if (trimmedProduct) {
-        const { error: productError } = await supabase
-          .from('client_products')
-          .upsert(
-            { client_id: clientId, product_name: trimmedProduct },
-            { onConflict: 'client_id,product_name', ignoreDuplicates: true }
-          );
-
-        if (productError) throw toSupabaseOperationError(productError);
-      }
-
-      // 3. Fetch all current owned products for complete profile
+      // 2. Fetch manual and interaction-derived products after database triggers run.
       const { data: productsData, error: productsError } = await supabase
         .from('client_products')
         .select('product_name')
         .eq('client_id', clientId);
       if (productsError) throw toSupabaseOperationError(productsError);
 
-      const ownedProducts: string[] = productsData
+      const manuallyOwnedProducts: string[] = productsData
         ? (productsData as Array<{ product_name: string }>).map((p) => p.product_name).filter(Boolean)
-        : trimmedProduct
-        ? [trimmedProduct]
         : [];
+
+      const interactionProductsData = await this.getInteractionProducts([clientId]);
+
+      const interactionProducts = Array.from(new Set(
+        (interactionProductsData || [])
+          .map((row) => row.product_name)
+          .filter(Boolean)
+      ));
+      const ownedProducts = Array.from(new Set([...manuallyOwnedProducts, ...interactionProducts]));
 
       return {
         id: clientId,
@@ -179,6 +215,8 @@ export class SupabaseClientRepository implements IClientRepository {
         phoneNumber: currentPhoneNumbers[0] || trimmedPhone,
         phoneNumbers: currentPhoneNumbers,
         ownedProducts,
+        manuallyOwnedProducts,
+        interactionProducts,
         createdAt: clientCreatedAt,
         updatedAt: now,
         lastLoggedBy: agent,
@@ -218,7 +256,8 @@ export class SupabaseClientRepository implements IClientRepository {
 
       // 2. Refresh client_products
       if (Array.isArray(client.ownedProducts)) {
-        const uniqueProducts = Array.from(new Set(client.ownedProducts.filter(Boolean)));
+        const manuallyOwnedProducts = client.manuallyOwnedProducts ?? client.ownedProducts;
+        const uniqueProducts = Array.from(new Set(manuallyOwnedProducts.filter(Boolean)));
         const { data: existingProducts, error: readProductsError } = await supabase
           .from('client_products')
           .select('id, product_name')

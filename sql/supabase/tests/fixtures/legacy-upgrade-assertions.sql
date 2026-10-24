@@ -1,5 +1,18 @@
 DO $$
 BEGIN
+  IF EXISTS (
+    SELECT 1 FROM public.client_product_interactions
+    WHERE interaction_id = '20000000-0000-4000-8000-000000000984'
+  ) THEN
+    RAISE EXCEPTION 'ambiguous legacy client ownership was assigned during upgrade';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.client_product_interactions
+    WHERE interaction_id = '20000000-0000-4000-8000-000000000985'
+      AND client_id = '20000000-0000-4000-8000-000000000983'
+  ) THEN
+    RAISE EXCEPTION 'unique legacy client ownership was not preserved during upgrade';
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.catalog_products
     WHERE name = 'Legacy fixture product' AND category = 'hardware' AND display_order = 7

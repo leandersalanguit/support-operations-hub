@@ -64,7 +64,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
         setName(client.name);
         setPhones(normalizeClientPhones(client));
         setPhoneInput('');
-        setProducts([...(client.ownedProducts || [])]);
+        setProducts([...(client.manuallyOwnedProducts ?? client.ownedProducts ?? [])]);
       } else {
         setName('');
         setPhones([]);
@@ -196,7 +196,9 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           name: trimmedName,
           phoneNumbers: finalPhones,
           phoneNumber: finalPhones[0] || undefined,
-          ownedProducts: products,
+          manuallyOwnedProducts: products,
+          interactionProducts: client.interactionProducts || [],
+          ownedProducts: Array.from(new Set([...products, ...(client.interactionProducts || [])])),
           updatedAt: now,
           lastLoggedBy: formattedAgent,
         };
@@ -214,6 +216,8 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           phoneNumbers: finalPhones,
           phoneNumber: finalPhones[0] || undefined,
           ownedProducts: products,
+          manuallyOwnedProducts: products,
+          interactionProducts: [],
           createdAt: now,
           updatedAt: now,
           lastLoggedBy: formattedAgent,
@@ -339,7 +343,7 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
           {/* Owned Products Selector */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Equipment Owned ({products.length})
+              Manually Owned Equipment ({products.length})
             </label>
             <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1.5 border border-slate-200 dark:border-slate-700 rounded-xl">
               {catalogProducts.map((prod) => {
@@ -369,6 +373,12 @@ export const ClientFormModal: React.FC<ClientFormModalProps> = ({
                 );
               })}
             </div>
+
+            {client?.interactionProducts && client.interactionProducts.length > 0 && (
+              <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                Also linked to interactions: {client.interactionProducts.join(', ')}
+              </p>
+            )}
 
             {/* Legacy / Unlisted Equipment Section */}
             {unlistedClientProducts.length > 0 && (

@@ -30,3 +30,6 @@ enabled = true
 site_url = "http://127.0.0.1:5173"
 additional_redirect_urls = ["http://localhost:5173"]
 enable_signup = false
+
+[functions.google-sheets-sync]
+verify_jwt = false
