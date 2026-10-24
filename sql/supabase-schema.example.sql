@@ -1,0 +1,17 @@
+-- Support Operations Hub schema setup
+--
+-- This file intentionally contains no executable schema or policy statements.
+-- The reviewed schema is maintained as Supabase CLI migrations under
+-- supabase/migrations/. Those migrations create private.staff_access, use
+-- current staff state for RLS, restrict onboarding tables, and add transactional
+-- interaction audit records. Do not restore broad `authenticated` or `anon`
+-- policies from older copies of this template.
+--
+-- For a clean local database, install the Supabase CLI and Docker, then run:
+--   npm run db:start
+--   npm run db:reset
+--   npm run test:db
+--
+-- For a linked project, review and back up the actual schema before applying
+-- migrations. This local example is not evidence of the production schema and
+-- does not create staff accounts or seed customer data.
