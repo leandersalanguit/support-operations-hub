@@ -139,7 +139,7 @@ describe('spreadsheet literal text', () => {
 
     expect(row.slice(1).filter((value) => /^[\s\u0000-\u001f]*[=+\-@]/.test(value)).length).toBe(0);
     expect(row[7]).toBe("'+1-555-0100");
-    expect(JSON.parse(response).success).toBe(false);
+    expect(JSON.parse(response).ok).toBe(false);
     expect(sheetAccesses).toBe(0);
   });
 

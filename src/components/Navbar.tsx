@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Clock, Cloud, RefreshCw, AlertCircle, Menu, LogOut, Moon, Sun } from 'lucide-react';
+import { Clock, Cloud, RefreshCw, AlertCircle, Menu, LogOut, Moon, Sun, CloudOff } from 'lucide-react';
 import { Interaction } from '../types';
 
 /**
@@ -49,6 +49,15 @@ export interface NavbarProps {
   pendingSyncCount?: number;
   /** Callback triggered to retry processing pending sync items */
   onRetrySync?: () => void;
+  /** Server-backed Google Sheets outbox status. */
+  sheetsSync?: {
+    state: 'disabled' | 'loading' | 'ready' | 'unavailable';
+    pendingCount: number;
+    failedCount: number;
+    retrying: boolean;
+    errorMessage: string | null;
+    onRetryFailed: () => void;
+  };
   /** Current active theme mode */
   theme?: 'light' | 'dark';
   /** Callback triggered when dark/light mode toggle button is clicked */
@@ -77,6 +86,7 @@ export const Navbar: React.FC<NavbarProps> = React.memo(
     syncStatus = 'connected',
     pendingSyncCount = 0,
     onRetrySync,
+    sheetsSync,
     theme = 'light',
     onToggleTheme,
     onResetSampleData: _onResetSampleData,
@@ -85,6 +95,68 @@ export const Navbar: React.FC<NavbarProps> = React.memo(
     onSignOut,
   }) => {
     const isDark = theme === 'dark';
+    const renderSheetsSyncStatus = (responsiveClass: string) => {
+      if (!sheetsSync) return null;
+
+      const tone =
+        sheetsSync.state === 'unavailable' || sheetsSync.failedCount > 0
+          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/80 dark:border-rose-800/60'
+          : sheetsSync.pendingCount > 0
+            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/80 dark:border-amber-800/60'
+            : sheetsSync.state === 'loading'
+              ? 'bg-fotoblue-50 dark:bg-fotoblue-950/40 text-fotoblue-700 dark:text-fotoblue-300 border-fotoblue-200/80 dark:border-fotoblue-800/60'
+              : sheetsSync.state === 'disabled'
+                ? 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-slate-700/80'
+                : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/60';
+
+      return (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`${responsiveClass} min-w-0 max-w-64 items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border shadow-2xs ${tone}`}
+        >
+          {sheetsSync.state === 'disabled' ? (
+            <>
+              <CloudOff className="w-3.5 h-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+              <span>Sheets sync not enabled</span>
+            </>
+          ) : sheetsSync.state === 'loading' ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 shrink-0 animate-spin text-fotoblue-600 dark:text-fotoblue-400" aria-hidden="true" />
+              <span>Checking Sheets sync…</span>
+            </>
+          ) : sheetsSync.state === 'unavailable' ? (
+            <>
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+              <span className="truncate">{sheetsSync.errorMessage || 'Sheets sync status is unavailable.'}</span>
+            </>
+          ) : sheetsSync.failedCount > 0 ? (
+            <>
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400" aria-hidden="true" />
+              <span className="truncate">Sheets · {sheetsSync.failedCount} failed · {sheetsSync.pendingCount} pending</span>
+              <button
+                type="button"
+                onClick={sheetsSync.onRetryFailed}
+                disabled={sheetsSync.retrying}
+                className="shrink-0 rounded px-1.5 py-0.5 font-semibold text-fotoblue-700 hover:bg-fotoblue-50 disabled:cursor-wait disabled:opacity-60 dark:text-fotoblue-300 dark:hover:bg-slate-800"
+              >
+                {sheetsSync.retrying ? 'Retrying…' : 'Retry failed'}
+              </button>
+            </>
+          ) : sheetsSync.pendingCount > 0 ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+              <span>Sheets · {sheetsSync.pendingCount} pending</span>
+            </>
+          ) : (
+            <>
+              <Cloud className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              <span>Sheets · No queued sync events</span>
+            </>
+          )}
+        </div>
+      );
+    };
 
     return (
       <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 shadow-2xs transition-colors duration-200">
@@ -208,6 +280,8 @@ export const Navbar: React.FC<NavbarProps> = React.memo(
                 </>
               )}
 
+              {renderSheetsSyncStatus('hidden sm:flex')}
+
               {/* Live Clock Badge */}
               <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-mono font-medium border border-slate-200/80 dark:border-slate-700/80">
                 <Clock className="w-3.5 h-3.5 text-fotoblue-600 dark:text-fotoblue-400" />
@@ -248,6 +322,11 @@ export const Navbar: React.FC<NavbarProps> = React.memo(
               )}
             </div>
           </div>
+          {sheetsSync && (
+            <div className="flex min-h-10 items-center justify-end gap-3 border-t border-slate-100 py-1.5 dark:border-slate-800 sm:hidden">
+              {renderSheetsSyncStatus('flex')}
+            </div>
+          )}
         </div>
       </header>
     );

@@ -8,6 +8,7 @@
     "build": "node ./node_modules/vite/bin/vite.js build",
     "preview": "node ./node_modules/vite/bin/vite.js preview",
     "test": "vitest run",
+    "check:sheet-bundle": "node scripts/check-google-sheets-bundle.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:start": "npx --yes supabase@2.121.0 start",

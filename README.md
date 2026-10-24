@@ -39,7 +39,7 @@
   - [8. Interactive History & Data Management Table](#8-interactive-history--data-management-table)
   - [9. Dedicated Audit Trails (Edit & Delete Logs)](#9-dedicated-audit-trails-edit--delete-logs)
   - [10. Offline-First Resilience & Postgres Realtime WebSockets](#10-offline-first-resilience--postgres-realtime-websockets)
-  - [11. Google Sheets Disabled for Pilot](#11-google-sheets-disabled-for-pilot)
+  - [11. One-way Google Sheets Sync](#11-one-way-google-sheets-sync)
   - [12. Advanced Reporting & OWASP-Sanitized Data Export](#12-advanced-reporting--owasp-sanitized-data-export)
   - [13. Operations Hub & Collapsible Sidebar Navigation](#13-operations-hub--collapsible-sidebar-navigation)
   - [14. Ergonomic Dark Mode & Shift-Optimized Theming](#14-ergonomic-dark-mode--shift-optimized-theming)
@@ -68,7 +68,7 @@ The **Support Operations Hub** unifies daily technical support workflows, agent 
 - **Live Real-Time Sync**: Multi-agent synchronization over PostgreSQL Realtime WebSockets, keeping all active team members in sync instantly without manual page refreshes.
 - **Offline Reliability**: Optimistic UI updates backed by a FIFO offline queue that caches transactions locally during network disruptions and auto-flushes upon reconnection.
 - **Immutable Audit Trails**: Enterprise change management recording before-and-after JSON snapshots for all edited and deleted interaction logs.
-- **Google Sheets**: Disabled for the pilot. CSV, XLSX, and clipboard exports remain available.
+- **Google Sheets**: A one-way, server-side sync is available after deployment configuration. Supabase remains canonical. CSV, XLSX, and clipboard exports remain available.
 - **Reporting & Data Portability**: Live KPI calculations, multi-dimensional search/filtering, and sanitized exports for both native Excel (`.xlsx`) and RFC-4180 CSV with OWASP formula injection protection.
 - **Ergonomic Theming**: Full-featured Dark Mode with deep slate surfaces (`slate-900` / `slate-950`) engineered for extended day and overnight shifts.
 
@@ -157,9 +157,13 @@ The **Support Operations Hub** unifies daily technical support workflows, agent 
 - **Zero-Latency Local Cache**: Bootstraps cached state from `localStorage` instantly (0ms startup latency) before verifying cloud data.
 - **FIFO Offline Queue (`useSyncPipeline.ts`)**: Queues failed or offline operations locally. Listens for browser `online` events and triggers background retries with visual status indicators (`Connected`, `Syncing...`, `Offline`, `Sync Error`).
 
-### 11. Google Sheets Disabled for Pilot
+### 11. One-way Google Sheets Sync
 
-The pilot does not send interaction data to Google Sheets. Do not configure or deploy the legacy Apps Script endpoint. Revoke any existing deployment and rotate its previous token before pilot use. A future Sheets integration requires a separate reviewed release.
+Committed interaction changes enter a private Supabase outbox. A scheduled Edge Function sends them to Google Sheets. The browser never sends interaction data to Google.
+
+The master-sheet shortcut uses the approved public Sheets URL. Sync stays disabled until the server secrets, Apps Script writer deployment, restricted sharing, and scheduled worker are configured. Disable any old endpoint that used a URL token and rotate its old token before deployment.
+
+See [Google Sheets sync deployment](docs/google-sheets-sync-deployment.md) for setup and shutdown steps.
 
 ### 12. Advanced Reporting & OWASP-Sanitized Data Export
 - **CSV Export**: RFC-4180 compliant CSV generator with **OWASP CSV injection protection** (sanitizes `=, +, -, @, \t, \r` formula prefixes to prevent spreadsheet command execution).
@@ -223,8 +227,7 @@ support-operations-hub/
 │   │   │   ├── csvExporter.ts             # RFC-4180 CSV builder with OWASP formula escaping
 │   │   │   └── spreadsheetExporter.ts     # Native .xlsx generator via write-excel-file
 │   │   ├── sheets/                        # Google Sheets Apps Script sync adapter
-│   │   │   ├── googleSheetsSync.ts        # Direct background HTTP fetch dispatcher
-│   │   │   └── googleSheetsSyncAdapter.ts # Repository wrapper for Google Sheets sync
+│   │   │   └── googleSheetsSyncAdapter.ts # Validated shortcut and browser write boundary
 │   │   ├── storage/                       # LocalStorage repositories & offline sync queue
 │   │   │   └── localStorageRepos.ts       # Local cache & offline FIFO queue storage
 │   │   ├── supabase/                      # Supabase client, repositories, mappers & audit
@@ -293,7 +296,7 @@ support-operations-hub/
 │   └── main.tsx                     # Application entrypoint & DOM mount
 │
 ├── google-sheets-v2-appscript.js    # Google Apps Script Web App source code
-├── supabase-schema.example.sql      # Supabase PostgreSQL schema template
+├── sql/                             # Local SQL scripts, migrations, and database tests
 ├── .env.example                     # Environment configuration template
 ├── .gitignore                       # Git ignore rules (*.sql, .env, etc.)
 ├── index.html                       # HTML entrypoint with metadata & favicon
@@ -333,7 +336,7 @@ Create a `.env` file in the project root by copying `.env.example`:
 cp .env.example .env
 ```
 
-Refer to [`.env.example`](./.env.example) for the full list of configuration options (Supabase credentials and helpdesk ticketing parameters). Google Sheets configuration is not available for the pilot.
+Refer to [`.env.example`](./.env.example) for the public shortcut and browser settings. Set Google Sheets server secrets only in Supabase Edge Function Secrets.
 
 ### Development Server
 
@@ -381,7 +384,9 @@ npm run preview
 
 ## 🗄 Database Setup & Supabase Schema
 
-The app uses Supabase Auth, PostgreSQL, and Realtime. Use the reviewed migrations in `supabase/migrations/`. The old schema example now contains instructions only. Do not run older copies that grant broad access.
+The app uses Supabase Auth, PostgreSQL, and Realtime. Manual SQL scripts and database tests are in the ignored `sql/` folder. Create an account in Supabase Dashboard under Authentication > Users, then run `sql/add-user.sql` for a support agent or `sql/add-team-lead.sql` for a team lead. Replace the user ID and email placeholders first. These scripts assign app access in `private.staff_access`; they do not create Auth accounts or set passwords.
+
+The reviewed migrations are in the standard `supabase/migrations/` path and are discovered by Supabase CLI. Database SQL tests and fixtures are preserved under `sql/supabase/tests/`.
 
 ### Local database verification
 
@@ -419,7 +424,7 @@ Keep restrictive database access and audit controls during rollback. Do not rest
 
 ## 📊 Google Sheets Pilot Status
 
-Google Sheets synchronization is disabled for the pilot. [`scripts/reference/google-sheets-v2-appscript.js`](./scripts/reference/google-sheets-v2-appscript.js) is a legacy reference and rejects requests while its credential is missing or remains a placeholder. Do not deploy it. The owner must disable any existing deployed endpoint and rotate the previous token. Repository changes do not verify deployed endpoint status.
+The master-sheet shortcut is public. Sync remains disabled until the server secrets, writer deployment, restricted Google sharing, and Supabase Cron job are configured. The reference Apps Script requires a token in the JSON request body. It rejects the old URL-token request. Disable an old deployed endpoint and rotate its old token before deployment.
 
 ---
 
