@@ -138,12 +138,15 @@ export function useClientDirectory(
     phoneNumber?: string;
     productName?: string;
     agentName: string;
+    interactionId?: string;
   }) => {
     if (!params.clientName.trim() || (!isDemoMode && (!storageScope || isPasswordChangeRequired))) return;
 
     const formattedParams = {
-      ...params,
+      clientName: params.clientName,
       phoneNumber: params.phoneNumber ? formatPhoneNumber(params.phoneNumber) : undefined,
+      productName: params.productName,
+      agentName: params.agentName,
     };
     const sessionGeneration = getCustomerSessionGeneration();
 
@@ -155,11 +158,19 @@ export function useClientDirectory(
           const idx = prev.findIndex(
             (c) => c.name.toLowerCase() === updatedClient.name.toLowerCase()
           );
+          const previousClient = idx >= 0 ? prev[idx] : undefined;
+          const returnedManualProducts = updatedClient.manuallyOwnedProducts ?? updatedClient.ownedProducts;
+          const manuallyOwnedProducts = isSupabaseConfigured
+            ? returnedManualProducts
+            : Array.from(new Set([
+                ...(previousClient?.manuallyOwnedProducts ?? previousClient?.ownedProducts ?? []),
+                ...returnedManualProducts,
+              ]));
+          const interactionProducts = updatedClient.interactionProducts ?? [];
+          const ownedProducts = Array.from(new Set([...manuallyOwnedProducts, ...interactionProducts]));
+
           if (idx >= 0) {
             const next = [...prev];
-            const mergedProducts = Array.from(
-              new Set([...next[idx].ownedProducts, ...updatedClient.ownedProducts])
-            );
             const mergedPhones = Array.from(
               new Set([
                 ...next[idx].phoneNumbers.map((p) => formatPhoneNumber(p)),
@@ -169,12 +180,14 @@ export function useClientDirectory(
             next[idx] = {
               ...next[idx],
               ...updatedClient,
-              ownedProducts: mergedProducts,
+              ownedProducts,
+              manuallyOwnedProducts,
+              interactionProducts,
               phoneNumbers: mergedPhones,
             };
             return next;
           }
-          return [...prev, updatedClient];
+          return [...prev, { ...updatedClient, ownedProducts, manuallyOwnedProducts, interactionProducts }];
         });
       }
     } catch (err) {
@@ -183,6 +196,7 @@ export function useClientDirectory(
       if (isAccessDeniedError(err)) {
         handleAccessRecheck();
       }
+      throw err;
     }
   }, [isDemoMode, isPasswordChangeRequired, storageScope, handleAccessRecheck]);
 
@@ -211,10 +225,15 @@ export function useClientDirectory(
       if (!isDemoMode && (!storageScope || isPasswordChangeRequired)) return;
       const normalizedClients = newClients.map((c) => {
         const formattedPhones = normalizeClientPhones(c);
+        const manuallyOwnedProducts = c.manuallyOwnedProducts ?? c.ownedProducts ?? [];
+        const interactionProducts = c.interactionProducts ?? [];
         return {
           ...c,
           phoneNumbers: formattedPhones,
           phoneNumber: formattedPhones[0] || (c.phoneNumber ? formatPhoneNumber(c.phoneNumber) : undefined),
+          manuallyOwnedProducts,
+          interactionProducts,
+          ownedProducts: Array.from(new Set([...manuallyOwnedProducts, ...interactionProducts])),
         };
       });
 

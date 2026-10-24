@@ -5,7 +5,7 @@
  * details, perform validations, and save changes.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Interaction,
   ChannelType,
@@ -16,7 +16,6 @@ import {
 import { getDayOfWeekFromDate, getTodayDateString } from '../utils/date';
 import { formatAgentDisplayName, validatePhoneNumber } from '../domain';
 import { useTaxonomies, useClientMatch } from '../application';
-import { resolveSupportLicenseSelection } from '../domain/interaction/license';
 import { getHelpdeskName } from '../utils/helpdesk';
 import { formatChannelDetailsForSubmit } from '../utils/channelDetails';
 import {
@@ -62,7 +61,7 @@ interface EditInteractionModalProps {
   /** Callback function to handle closing the modal without saving. */
   onClose: () => void;
   /** Callback function triggered when valid changes are saved. Passes back the updated interaction. */
-  onSave: (updated: Interaction) => void;
+  onSave: (updated: Interaction, retainPreviousProduct: boolean) => void | Promise<void>;
 }
 
 /**
@@ -108,11 +107,13 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
   const [agent, setAgent] = useState<string>(''); // The name of the agent who handled the interaction
   const { products, classifications, supportTiers } = useTaxonomies();
   const helpdeskName = getHelpdeskName();
-  const licenseManuallyChangedRef = useRef(false);
   const [clientName, setClientName] = useState<string>(''); // The name of the client
   const [channel, setChannel] = useState<ChannelType>('Call'); // The communication channel ('Call' or 'Chat')
   const [channelDetails, setChannelDetails] = useState<string>(''); // Specific details for the channel (e.g., phone number or ticket ID)
   const [clientProduct, setClientProduct] = useState<string>(''); // The related product
+  const [retainPreviousProduct, setRetainPreviousProduct] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [caseClassification, setCaseClassification] = useState<string>(''); // Case classification category
   const [status, setStatus] = useState<StatusType | ''>(''); // The current status of the interaction
 
@@ -137,7 +138,6 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
    */
   useEffect(() => {
     if (interaction) {
-      licenseManuallyChangedRef.current = false;
       setDate(interaction.date);
       setDayOfWeek(interaction.dayOfWeek || getDayOfWeekFromDate(interaction.date));
       setAgent(formatAgentDisplayName(interaction.agent) || interaction.agent);
@@ -145,6 +145,8 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
       setChannel(interaction.channel);
       setChannelDetails(interaction.channelDetails);
       setClientProduct(interaction.clientProduct);
+      setRetainPreviousProduct(true);
+      setSaveError(null);
       setCaseClassification(interaction.caseClassification);
       setStatus(interaction.status);
       setLicense(interaction.license || 'support_active');
@@ -157,15 +159,6 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
       setSubmittedAttempt(false);
     }
   }, [interaction]);
-
-  useEffect(() => {
-    if (!interaction) return;
-    const nextLicense = resolveSupportLicenseSelection(license, supportTiers, {
-      userSelected: licenseManuallyChangedRef.current,
-      storedLicense: interaction.license,
-    });
-    if (license !== nextLicense) setLicense(nextLicense);
-  }, [interaction, license, supportTiers]);
 
   const handleSelectClientSuggestion = (client: ClientRecord) => {
     setClientName(client.name);
@@ -268,7 +261,7 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
    *
    * @param {React.FormEvent} e - The form submission event.
    */
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault(); // Prevent default form submission reload
     setSubmittedAttempt(true); // Mark that a submission attempt was made to show errors
 
@@ -282,7 +275,10 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
 
     // Spread the original interaction to preserve non-editable fields (like id, createdAt, time),
     // and overwrite with updated values from form state
-    onSave({
+    setSaving(true);
+    setSaveError(null);
+    try {
+    await onSave({
       ...interaction,
       date,
       dayOfWeek: dayOfWeek || getDayOfWeekFromDate(date),
@@ -299,10 +295,15 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
       additionalNotes: additionalNotes.trim(),
       lastModifiedBy: formattedModifier,
       lastModifiedAt: new Date().toISOString(),
-    });
+    }, retainPreviousProduct);
     
     // Close the modal after a successful save
     onClose();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save this interaction.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
@@ -328,6 +329,11 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
         <div className="bg-rose-50 dark:bg-rose-950/40 border-b border-rose-200 dark:border-rose-900/60 px-6 py-2.5 flex items-center gap-2 text-xs font-semibold text-rose-800 dark:text-rose-300 shrink-0">
           <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
           <span>Please complete all required fields below.</span>
+        </div>
+      )}
+      {saveError && (
+        <div role="alert" className="border-b border-rose-200 bg-rose-50 px-6 py-2.5 text-xs font-semibold text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+          {saveError}
         </div>
       )}
 
@@ -499,16 +505,24 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
 
           {/* Row 3: Product, Classification, Status */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <ProductSelector
-              value={clientProduct}
-              onChange={(val) => {
-                setClientProduct(val);
-                if (errors.clientProduct) setErrors((prev) => ({ ...prev, clientProduct: undefined }));
-              }}
-              products={products}
-              matchedClient={matchedClient as any}
-              error={errors.clientProduct}
-            />
+            <div className="min-w-0">
+              <ProductSelector
+                value={clientProduct}
+                onChange={(val) => {
+                  setClientProduct(val);
+                  if (errors.clientProduct) setErrors((prev) => ({ ...prev, clientProduct: undefined }));
+                }}
+                products={products}
+                matchedClient={matchedClient as any}
+                error={errors.clientProduct}
+              />
+              {clientName.trim() === interaction.clientName && clientProduct !== interaction.clientProduct && (
+                <label className="mt-2 flex min-w-0 items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+                  <input className="mt-0.5 shrink-0" type="checkbox" checked={retainPreviousProduct} onChange={(event) => setRetainPreviousProduct(event.target.checked)} />
+                  <span className="min-w-0 break-words">Customer still owns {interaction.clientProduct}</span>
+                </label>
+              )}
+            </div>
 
             <ClassificationSelector
               value={caseClassification}
@@ -547,10 +561,7 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
               <LicenseSelector
                 license={license}
                 supportTiers={supportTiers}
-                onChangeLicense={(val) => {
-                  licenseManuallyChangedRef.current = true;
-                  setLicense(val);
-                }}
+                onChangeLicense={(val) => setLicense(val)}
                 compact
               />
 
@@ -617,10 +628,11 @@ export const EditInteractionModal: React.FC<EditInteractionModalProps> = React.m
           </button>
           <button
             type="submit"
+            disabled={saving}
             className="flex items-center gap-1.5 px-5 py-2 bg-gradient-to-r from-fotoblue-500 to-fotodeep-500 hover:from-fotoblue-600 hover:to-fotodeep-600 dark:bg-none dark:bg-fotoblue-600 dark:hover:bg-fotoblue-500 text-white font-bold text-xs rounded-xl shadow-sm dark:shadow-fotoblue-950/60 dark:border dark:border-fotoblue-400/30 transition-all cursor-pointer"
           >
             <Save className="w-4 h-4" />
-            <span>Save Changes</span>
+            <span>{saving ? 'Saving…' : 'Save Changes'}</span>
           </button>
         </ModalFooter>
       </form>

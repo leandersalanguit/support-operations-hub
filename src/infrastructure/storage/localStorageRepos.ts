@@ -61,6 +61,8 @@ function isValidClientProfile(obj: unknown): obj is ClientProfile {
     r.phoneNumbers.every((p) => typeof p === 'string') &&
     Array.isArray(r.ownedProducts) &&
     r.ownedProducts.every((p) => typeof p === 'string') &&
+    (r.manuallyOwnedProducts === undefined || (Array.isArray(r.manuallyOwnedProducts) && r.manuallyOwnedProducts.every((p) => typeof p === 'string'))) &&
+    (r.interactionProducts === undefined || (Array.isArray(r.interactionProducts) && r.interactionProducts.every((p) => typeof p === 'string'))) &&
     typeof r.createdAt === 'string' &&
     typeof r.updatedAt === 'string'
   );

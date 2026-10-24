@@ -34,7 +34,8 @@ export function computeClientDiff(
     return (
       original.name !== c.name ||
       JSON.stringify(original.phoneNumbers || []) !== JSON.stringify(c.phoneNumbers || []) ||
-      JSON.stringify(original.ownedProducts || []) !== JSON.stringify(c.ownedProducts || [])
+      JSON.stringify(original.manuallyOwnedProducts ?? original.ownedProducts ?? []) !==
+        JSON.stringify(c.manuallyOwnedProducts ?? c.ownedProducts ?? [])
     );
   });
 

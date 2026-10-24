@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useInteractionWorkflow } from '../useInteractionWorkflow';
 import { CUSTOMER_CACHE_TTL_MS, readScopedSession, scopedSessionKey, writeScopedSession } from '../../infrastructure/storage/scopedSessionStore';
 
-const repositoryMocks = vi.hoisted(() => ({ getAll: vi.fn(), insert: vi.fn(), update: vi.fn(), delete: vi.fn(), subscribeRealtime: vi.fn() }));
+const repositoryMocks = vi.hoisted(() => ({ getAll: vi.fn(), insert: vi.fn(), update: vi.fn(), updateWithOwnershipChoice: vi.fn(), delete: vi.fn(), subscribeRealtime: vi.fn() }));
 const syncMocks = vi.hoisted(() => ({
   pendingSyncCount: 0,
   setSyncStatus: vi.fn(),
@@ -36,12 +36,18 @@ describe('useInteractionWorkflow stale reset responses', () => {
   let renderer: ReactTestRenderer | undefined;
   let latest: ReturnType<typeof useInteractionWorkflow>;
 
-  function Harness({ user, onAccessRecheck, passwordChangeRequired = false }: { user: typeof userA; onAccessRecheck?: () => void; passwordChangeRequired?: boolean }) {
+  function Harness({ user, onAccessRecheck, onClientLogged, passwordChangeRequired = false }: {
+    user: typeof userA;
+    onAccessRecheck?: () => void;
+    onClientLogged?: (params: { clientName: string; phoneNumber?: string; productName?: string; agentName: string; interactionId: string }) => void;
+    passwordChangeRequired?: boolean;
+  }) {
     latest = useInteractionWorkflow({
       currentUser: user,
       currentAgentName: 'Agent',
       isPasswordChangeRequired: passwordChangeRequired,
       onAccessRecheck,
+      onClientLogged,
     });
     return null;
   }
@@ -117,7 +123,7 @@ describe('useInteractionWorkflow stale reset responses', () => {
     const { addToSyncQueue, getPendingSyncQueue } = await import('../../infrastructure/storage/localStorageRepos');
     writeScopedSession(scopeA, 'interactions', [interaction]);
     repositoryMocks.getAll.mockResolvedValue([interaction]);
-    repositoryMocks.update.mockRejectedValueOnce(Object.assign(new Error('zero rows'), { code: 'PGRST116' }));
+    repositoryMocks.updateWithOwnershipChoice.mockRejectedValueOnce(Object.assign(new Error('zero rows'), { code: 'PGRST116' }));
 
     await act(async () => {
       renderer = create(<Harness user={userA} onAccessRecheck={onAccessRecheck} />);
@@ -126,12 +132,52 @@ describe('useInteractionWorkflow stale reset responses', () => {
     });
     addToSyncQueue(scopeA, 'update', interaction.id, interaction as any);
     await act(async () => {
-      await latest.saveEdit({ ...interaction, additionalNotes: 'changed' } as any);
+      await expect(latest.saveEdit({ ...interaction, additionalNotes: 'changed' } as any)).rejects.toMatchObject({ code: 'PGRST116' });
     });
 
     expect(onAccessRecheck).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem(scopedSessionKey(scopeA, 'interactions'))).toBeNull();
     expect(getPendingSyncQueue(scopeA)).toEqual([]);
+  });
+
+  it('passes the edited interaction identity with its updated client product', async () => {
+    const onClientLogged = vi.fn();
+    const updated = { ...interaction, clientProduct: 'Product B' };
+    repositoryMocks.getAll.mockResolvedValue([interaction]);
+    repositoryMocks.updateWithOwnershipChoice.mockResolvedValueOnce(updated);
+
+    await act(async () => {
+      renderer = create(<Harness user={userA} onClientLogged={onClientLogged} />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await latest.saveEdit(updated as any, false);
+    });
+
+    expect(repositoryMocks.updateWithOwnershipChoice).toHaveBeenCalledWith(updated, false);
+
+    expect(onClientLogged).toHaveBeenCalledWith(expect.objectContaining({
+      interactionId: interaction.id,
+      productName: 'Product B',
+    }));
+    expect(repositoryMocks.updateWithOwnershipChoice).toHaveBeenCalledWith(updated, false);
+  });
+
+  it('surfaces customer sync failure after saving the interaction', async () => {
+    repositoryMocks.getAll.mockResolvedValue([interaction]);
+    repositoryMocks.updateWithOwnershipChoice.mockResolvedValueOnce(interaction);
+    const onClientLogged = vi.fn().mockRejectedValue(new Error('client write failed'));
+    await act(async () => {
+      renderer = create(<Harness user={userA} onClientLogged={onClientLogged} />);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await latest.saveEdit(interaction as any, true);
+    });
+
+    expect(latest.clientSyncErrorMessage).toContain('customer details did not sync');
   });
 });
 

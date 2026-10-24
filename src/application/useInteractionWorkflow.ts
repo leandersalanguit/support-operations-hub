@@ -27,7 +27,7 @@ export interface UseInteractionWorkflowProps {
   isPasswordChangeRequired: boolean;
   isDemoMode?: boolean;
   onAccessRecheck?: () => void | Promise<unknown>;
-  onClientLogged?: (params: { clientName: string; phoneNumber?: string; productName?: string; agentName: string }) => void;
+  onClientLogged?: (params: { clientName: string; phoneNumber?: string; productName?: string; agentName: string; interactionId: string }) => Promise<void> | void;
 }
 
 function isCurrentSession(generation: number, current: StorageScope | null | undefined, expected: StorageScope | null | undefined): boolean {
@@ -59,6 +59,7 @@ export function useInteractionWorkflow({
   });
   const [editingInteraction, setEditingInteraction] = useState<SupportInteraction | null>(null);
   const [deletingInteraction, setDeletingInteraction] = useState<SupportInteraction | null>(null);
+  const [clientSyncErrorMessage, setClientSyncErrorMessage] = useState<string | null>(null);
 
   const sync = useSyncPipeline(currentUser, isPasswordChangeRequired, storageScope);
 
@@ -206,19 +207,21 @@ export function useInteractionWorkflow({
 
     // 1. Optimistic prepend
     setInteractions((prev) => [newInteraction, ...prev]);
+    let interactionPersisted = isDemoMode || !isSupabaseConfigured;
 
     // 3. Cloud persistence
     if (!isDemoMode && isSupabaseConfigured) {
       sync.setSyncStatus('syncing');
       try {
         await interactionRepo.insert(newInteraction);
+        interactionPersisted = true;
         if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
         sync.markSyncSuccess(newInteraction.id, sessionGeneration);
       } catch (err: any) {
         if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
         if (isAccessDeniedError(err)) {
           handleAccessRecheck(storageScope);
-          return;
+          throw err;
         }
         console.error('Failed to save to Supabase:', err);
         sync.enqueueFailedSync('insert', newInteraction.id, newInteraction, err.message, sessionGeneration);
@@ -226,7 +229,7 @@ export function useInteractionWorkflow({
     }
 
     // 4. CRM Client Logging
-    if (onClientLogged) {
+    if (onClientLogged && interactionPersisted) {
       let clientPhone: string | undefined = undefined;
       if (formData.channel === 'Call' && formData.channelDetails) {
         clientPhone = formData.channelDetails.trim();
@@ -234,18 +237,26 @@ export function useInteractionWorkflow({
         clientPhone = formData.channelDetails.trim();
       }
 
-      onClientLogged({
+      try {
+        await onClientLogged({
         clientName: formData.clientName,
         phoneNumber: clientPhone,
         productName: formData.clientProduct,
         agentName: currentAgentName,
-      });
+        interactionId: newInteraction.id,
+        });
+        setClientSyncErrorMessage(null);
+      } catch (err) {
+        console.warn('Interaction saved, but customer details did not sync:', err);
+        setClientSyncErrorMessage('Interaction saved, but customer details did not sync. Refresh or retry the customer update.');
+      }
     }
   }, [currentAgentName, currentUser, isDemoMode, onClientLogged, sync, storageScope, handleAccessRecheck]);
 
   // Edit Interaction
-  const saveEdit = useCallback(async (updated: SupportInteraction) => {
+  const saveEdit = useCallback(async (updated: SupportInteraction, retainPreviousProduct = true) => {
     const sessionGeneration = getCustomerSessionGeneration();
+    const previousInteraction = interactions.find((item) => item.id === updated.id);
     // 1. Optimistic update
     setInteractions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
 
@@ -254,17 +265,21 @@ export function useInteractionWorkflow({
       sync.setSyncStatus('syncing');
 
       try {
-        await interactionRepo.update(updated);
+        await interactionRepo.updateWithOwnershipChoice(updated, retainPreviousProduct);
         if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
         sync.markSyncSuccess(updated.id, sessionGeneration);
+        setClientSyncErrorMessage(null);
       } catch (err: any) {
         if (!isCurrentSession(sessionGeneration, currentScopeRef.current, storageScope)) return;
         if (isAccessDeniedError(err)) {
           handleAccessRecheck(storageScope);
-          return;
+          throw err;
         }
         console.error('Failed to update Supabase:', err);
-        sync.enqueueFailedSync('update', updated.id, updated, err.message, sessionGeneration);
+        setInteractions((prev) => prev.map((item) => item.id === updated.id ? (previousInteraction || item) : item));
+        sync.setSyncStatus('error');
+        setClientSyncErrorMessage(`Interaction could not be saved: ${err.message}`);
+        throw err;
       }
     }
 
@@ -277,12 +292,19 @@ export function useInteractionWorkflow({
         editPhone = updated.channelDetails.trim();
       }
 
-      onClientLogged({
+      try {
+        await onClientLogged({
         clientName: updated.clientName,
         phoneNumber: editPhone,
         productName: updated.clientProduct,
         agentName: currentAgentName,
-      });
+        interactionId: updated.id,
+        });
+        setClientSyncErrorMessage(null);
+      } catch (err) {
+        console.warn('Interaction saved, but customer details did not sync:', err);
+        setClientSyncErrorMessage('Interaction saved, but customer details did not sync. Refresh or retry the customer update.');
+      }
     }
 
     setEditingInteraction(null);
@@ -370,6 +392,7 @@ export function useInteractionWorkflow({
     confirmDelete,
     resetSampleData,
     clearAllInteractions,
+    clientSyncErrorMessage,
     sync,
   };
 }

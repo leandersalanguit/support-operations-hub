@@ -117,6 +117,39 @@ describe('useClientDirectory cache hydration', () => {
     expect(latest.clients).toEqual([]);
     expect(clientRepoMocks.delete).toHaveBeenCalledWith('client-a');
   });
+
+  it('replaces interaction-derived products while retaining explicitly owned products', async () => {
+    const existingClient = {
+      ...client,
+      ownedProducts: ['Product A', 'Product C'],
+      manuallyOwnedProducts: ['Product A'],
+      interactionProducts: ['Product C'],
+    };
+    const reconciledClient = {
+      ...existingClient,
+      ownedProducts: ['Product A', 'Product B'],
+      manuallyOwnedProducts: ['Product A'],
+      interactionProducts: ['Product B'],
+    };
+    writeScopedSession(scopeA, 'clients', [existingClient]);
+    clientRepoMocks.upsertClientWithProduct.mockResolvedValueOnce(reconciledClient);
+
+    await act(async () => {
+      renderer = create(<Harness />);
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await latest.recordClientInteraction({
+        clientName: 'Client A',
+        productName: 'Product B',
+        agentName: 'Agent',
+        interactionId: 'interaction-a',
+      } as any);
+    });
+
+    expect(latest.clients[0]).toMatchObject(reconciledClient);
+    expect(latest.clients[0].ownedProducts).not.toContain('Product C');
+  });
 });
 
 class MemoryStorage {
